@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v4.0 Beta
+# POGO Dex Tracker — v0.5 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v4.0 — see changelog below)
+Last updated: July 20, 2026 (v0.5 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,11 @@ Last updated: July 20, 2026 (v4.0 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v0.5 Beta
+- Inventory tab now split into three sections: **Base**, **Shiny**, and **Alternate** (forms), each with its own count badge.
+- Alternate (forms) currently list as plain text (name only, shiny marked with a ★) rather than sprite images, until a more reliable form-image data source is in place.
+- Added a delete (🗑) button to every inventory row, letting you un-mark a caught Pokémon, shiny, or form directly from the Inventory tab instead of only through the Pokédex detail modal.
 
 ### v4.0 Beta
 - Added a search/filter bar to the Offering side of the Trade Builder tab, filtering your caught inventory by name as your collection grows.

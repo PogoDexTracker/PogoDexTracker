@@ -241,6 +241,16 @@
   .inv-row img{width:44px;height:44px;object-fit:contain;}
   .inv-row .name{flex:1;text-transform:capitalize;font-size:14px;}
   .inv-row .tag{font-size:11px;color:var(--gold);background:rgba(255,206,69,0.12);padding:2px 8px;border-radius:999px;}
+  .inv-section{margin-top:20px;}
+  .inv-section:first-of-type{margin-top:16px;}
+  .inv-section-title{
+    font-family:'Roboto',sans-serif;font-weight:700;font-size:15px;
+    color:var(--accent);
+    border-bottom:1px solid var(--line);
+    padding-bottom:8px;margin-bottom:10px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .inv-count{color:var(--text-dim);font-size:12px;font-weight:500;}
 
   .trade-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   @media(max-width:760px){.trade-cols{grid-template-columns:1fr;} .dex-card img{width:56px;height:56px;}}
@@ -936,39 +946,83 @@ function toggleFormShiny(id, formName){
 }
 
 function renderInventory(el){
-  const rows = [];
+  const baseRows = [];
+  const shinyRows = [];
+  const altRows = [];
   Object.keys(dexData).forEach(idStr=>{
     const id = parseInt(idStr);
     const e = dexData[id];
     const species = speciesList.find(p=>p.id===id);
     if(!species) return;
-    if(e.caught) rows.push({id, name:species.name, shiny:e.shiny, tradeQty:e.tradeQty, form:null});
+    if(e.caught){
+      const row = {id, name:species.name, shiny:e.shiny, tradeQty:e.tradeQty, form:null};
+      (e.shiny ? shinyRows : baseRows).push(row);
+    }
     Object.keys(e.forms||{}).forEach(fname=>{
       const fe = e.forms[fname];
       if(fe.caught){
         const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
-        rows.push({id, name: cat ? cat.displayName + ' ' + species.name : fname, shiny: fe.shiny, tradeQty: fe.tradeQty, form:fname});
+        altRows.push({id, name: cat ? cat.displayName + ' ' + species.name : fname, shiny: fe.shiny, tradeQty: fe.tradeQty, form:fname});
       }
     });
   });
-  const filtered = invFilter ? rows.filter(r=>r.name.toLowerCase().includes(invFilter.toLowerCase())) : rows;
+  const matches = r => !invFilter || r.name.toLowerCase().includes(invFilter.toLowerCase());
+  const fBase = baseRows.filter(matches);
+  const fShiny = shinyRows.filter(matches);
+  const fAlt = altRows.filter(matches);
+  const totalCaught = baseRows.length + shinyRows.length;
+
   el.innerHTML = `
     <div class="panel">
       <div class="search-row">
         <input type="text" id="invSearchInput" placeholder="Filter your inventory..." value="${invFilter}">
-        <button class="primary-btn" style="margin-top:0;" id="exportSheetsBtn" onclick="exportInventoryToSheets()" ${rows.length ? '' : 'disabled'}>Export to Google Sheets</button>
+        <button class="primary-btn" style="margin-top:0;" id="exportSheetsBtn" onclick="exportInventoryToSheets()" ${totalCaught ? '' : 'disabled'}>Export to Google Sheets</button>
       </div>
-      ${filtered.length ? `<div class="inv-list">${filtered.map(r=>`
-        <div class="inv-row">
-          <img src="${r.form ? ((formCatalog[r.id]||[]).find(f=>f.name===r.form)||{})[r.shiny?'shinySprite':'sprite'] : artUrl(r.id, r.shiny)}" onerror="this.src='${artUrl(r.id,false)}'">
-          <div class="name">${r.name}</div>
-          ${r.shiny ? '<div class="tag">★ shiny</div>' : ''}
-          ${r.tradeQty>0 ? `<div class="tag">×${r.tradeQty} for trade</div>` : ''}
-        </div>
-      `).join('')}</div>` : '<div class="empty-note">Nothing caught yet. Head to the Pokédex tab to start tracking.</div>'}
+      <div class="inv-section">
+        <div class="inv-section-title">Base <span class="inv-count mono">${fBase.length}</span></div>
+        ${renderInvRows(fBase, true)}
+      </div>
+      <div class="inv-section">
+        <div class="inv-section-title">Shiny <span class="inv-count mono">${fShiny.length}</span></div>
+        ${renderInvRows(fShiny, true)}
+      </div>
+      <div class="inv-section">
+        <div class="inv-section-title">Alternate <span class="inv-count mono">${fAlt.length}</span></div>
+        ${renderInvRows(fAlt, false)}
+      </div>
     </div>
   `;
   document.getElementById('invSearchInput').oninput = (ev)=>{ invFilter = ev.target.value; renderTabContent(); };
+}
+
+function renderInvRows(rows, showImage){
+  if(!rows.length) return '<div class="empty-note">Nothing here yet.</div>';
+  return `<div class="inv-list">${rows.map(r=>`
+    <div class="inv-row">
+      ${showImage ? `<img src="${artUrl(r.id, r.shiny)}" onerror="this.src='${artUrl(r.id,false)}'">` : ''}
+      <div class="name">${r.name}${(!showImage && r.shiny) ? ' ★' : ''}</div>
+      ${r.tradeQty>0 ? `<div class="tag">×${r.tradeQty} for trade</div>` : ''}
+      <button class="x-btn" title="Remove from inventory" onclick="${r.form ? `removeFormFromInventory(${r.id}, '${r.form}')` : `removeFromInventory(${r.id})`}">🗑</button>
+    </div>
+  `).join('')}</div>`;
+}
+
+function removeFromInventory(id){
+  const e = getEntry(id);
+  e.caught = false;
+  e.shiny = false;
+  e.tradeQty = 0;
+  saveDexData();
+  renderTabContent();
+}
+
+function removeFormFromInventory(id, formName){
+  const fe = getFormEntry(id, formName);
+  fe.caught = false;
+  fe.shiny = false;
+  fe.tradeQty = 0;
+  saveDexData();
+  renderTabContent();
 }
 
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
