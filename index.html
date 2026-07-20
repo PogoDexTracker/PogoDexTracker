@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal Pokédex Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --bg-deep:#0A1420;
+    --bg-panel:#0F1E2E;
+    --bg-panel-2:#142A3D;
+    --line:#20394D;
+    --accent:#39D98A;
+    --accent-dim:#1F6B47;
+    --red:#FF4B4B;
+    --gold:#FFCE45;
+    --text:#EAF6F0;
+    --text-dim:#84A2B0;
+    --good:#4ADE80;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #123a2e 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #0f2e2a 0%, transparent 55%),
+      var(--bg-deep);
+    color:var(--text);
+    font-family:'Manrope',sans-serif;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Baloo 2',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  #app{max-width:1200px;margin:0 auto;padding:20px 16px 60px;}
+
+  .bezel{
+    background:linear-gradient(160deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:18px 22px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    position:relative;
+    overflow:hidden;
+  }
+  .bezel::before{
+    content:"";
+    position:absolute;inset:0;
+    background:repeating-linear-gradient(100deg, rgba(57,217,138,0.06) 0 2px, transparent 2px 26px);
+    pointer-events:none;
+  }
+  .bezel-title{display:flex;align-items:center;gap:12px;}
+  .power-dot{width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px rgba(255,75,75,0.2);animation:pulse 2.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  .bezel-title h1{margin:0;font-size:24px;letter-spacing:.3px;}
+  .bezel-sub{color:var(--text-dim);font-size:13px;margin-top:2px;}
+  .stat-pill{
+    background:var(--bg-deep);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:8px 16px;
+    font-size:13px;
+    color:var(--text-dim);
+  }
+  .stat-pill b{color:var(--gold);font-family:'IBM Plex Mono',monospace;}
+  .profile-chip{display:flex;align-items:center;gap:8px;}
+  .profile-chip img{width:28px;height:28px;border-radius:50%;}
+
+  .tabs{display:flex;gap:8px;margin:20px 0;flex-wrap:wrap;}
+  .tab-btn{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    padding:10px 18px;
+    border-radius:12px;
+    font-family:'Baloo 2',sans-serif;
+    font-size:15px;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .tab-btn:hover{color:var(--text);border-color:var(--accent-dim);}
+  .tab-btn.active{background:var(--accent);color:#052015;border-color:var(--accent);font-weight:700;}
+  .tab-btn:focus-visible, button:focus-visible, input:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+  .panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px;
+  }
+
+  .search-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+  input[type=text], input[type=number]{
+    background:var(--bg-deep);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:10px 14px;
+    border-radius:10px;
+    font-family:'Manrope',sans-serif;
+    font-size:14px;
+  }
+  input[type=text]{flex:1;min-width:180px;}
+
+  select{
+    background:var(--bg-deep);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:10px 14px;
+    border-radius:10px;
+    font-family:'Manrope',sans-serif;
+    font-size:14px;
+    cursor:pointer;
+  }
+
+  .dex-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+    gap:12px;
+  }
+  .region-header{
+    grid-column:1/-1;
+    font-family:'Baloo 2',sans-serif;
+    font-size:15px;
+    font-weight:700;
+    color:var(--accent);
+    border-bottom:1px solid var(--line);
+    padding:14px 0 6px;
+    margin-top:4px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .region-header:first-child{margin-top:0;padding-top:0;}
+  .dex-card{
+    background:var(--bg-deep);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px;
+    text-align:center;
+    cursor:pointer;
+    transition:.15s;
+    position:relative;
+  }
+  .dex-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .dex-card img{width:72px;height:72px;object-fit:contain;}
+  .dex-num{color:var(--text-dim);font-size:11px;}
+  .dex-name{font-size:13px;font-weight:700;text-transform:capitalize;margin-top:2px;}
+  .badge-row{position:absolute;top:6px;right:6px;display:flex;gap:3px;}
+  .badge{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;}
+  .badge.caught{background:var(--good);}
+  .badge.shiny{background:var(--gold);}
+
+  .load-more{display:block;margin:18px auto 0;background:var(--accent);color:#052015;border:none;padding:10px 24px;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Baloo 2',sans-serif;}
+
+  .overlay{position:fixed;inset:0;background:rgba(5,10,25,0.75);display:none;align-items:center;justify-content:center;z-index:50;padding:16px;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--bg-panel);border:1px solid var(--line);border-radius:18px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;padding:22px;position:relative;}
+  .modal-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;}
+  .modal-hero{text-align:center;}
+  .modal-hero img{width:150px;height:150px;object-fit:contain;}
+  .modal-num{color:var(--text-dim);font-family:'IBM Plex Mono',monospace;}
+  .modal-name{font-size:22px;text-transform:capitalize;}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);}
+  .toggle-row label{font-size:14px;color:var(--text-dim);}
+  .switch{position:relative;width:44px;height:24px;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;cursor:pointer;inset:0;background:var(--line);border-radius:24px;transition:.15s;}
+  .slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.15s;}
+  input:checked + .slider{background:var(--accent);}
+  input:checked + .slider::before{transform:translateX(20px);}
+  .qty-input{width:70px;text-align:center;}
+  .forms-section{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;}
+  .form-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+  .form-item img{width:48px;height:48px;object-fit:contain;}
+  .form-item .fname{flex:1;font-size:13px;text-transform:capitalize;}
+  .mini-toggle{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-dim);}
+  .spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:14px auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .inv-list{display:flex;flex-direction:column;gap:8px;}
+  .inv-row{display:flex;align-items:center;gap:12px;background:var(--bg-deep);border:1px solid var(--line);border-radius:10px;padding:8px 12px;}
+  .inv-row img{width:44px;height:44px;object-fit:contain;}
+  .inv-row .name{flex:1;text-transform:capitalize;font-size:14px;}
+  .inv-row .tag{font-size:11px;color:var(--gold);background:rgba(255,206,69,0.12);padding:2px 8px;border-radius:999px;}
+
+  .trade-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:760px){.trade-cols{grid-template-columns:1fr;} .dex-card img{width:56px;height:56px;}}
+  .trade-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;margin-top:10px;}
+  .trade-item{display:flex;align-items:center;gap:8px;background:var(--bg-deep);border:1px solid var(--line);border-radius:8px;padding:6px 10px;}
+  .trade-item img{width:32px;height:32px;object-fit:contain;}
+  .trade-item span{flex:1;font-size:13px;text-transform:capitalize;}
+  .x-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;}
+  .primary-btn{background:var(--accent);color:#052015;border:none;padding:10px 20px;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Baloo 2',sans-serif;margin-top:10px;}
+  .search-results{max-height:180px;overflow-y:auto;margin-top:8px;}
+  .sr-item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;cursor:pointer;}
+  .sr-item:hover{background:var(--bg-deep);}
+  .sr-item img{width:28px;height:28px;object-fit:contain;}
+
+  #tradeCardWrap{margin-top:20px;}
+  #tradeCard{
+    width:900px;max-width:100%;
+    background:linear-gradient(135deg,#4FA8FF 0%,#2E6FE0 60%,#1E4E9C 100%);
+    border-radius:24px;padding:26px;color:white;font-family:'Manrope',sans-serif;
+    position:relative;overflow:hidden;
+  }
+  #tradeCard::before{
+    content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(115deg, rgba(255,255,255,0.06) 0 10px, transparent 10px 24px);
+  }
+  .tc-title{text-align:center;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:30px;text-shadow:0 2px 0 rgba(0,0,0,0.25);position:relative;margin-bottom:14px;}
+  .tc-section-label{display:flex;align-items:center;gap:10px;font-family:'Baloo 2',sans-serif;font-weight:700;font-size:19px;margin:14px 0 8px;position:relative;}
+  .tc-ball{width:24px;height:24px;border-radius:50%;background:linear-gradient(#fff 50%,#eee 50%);border:2px solid #222;position:relative;}
+  .tc-ball::before{content:"";position:absolute;top:9px;left:0;right:0;height:3px;background:#222;}
+  .tc-ball::after{content:"";position:absolute;top:7px;left:8px;width:8px;height:8px;background:#fff;border:2px solid #222;border-radius:50%;}
+  .tc-box{background:rgba(255,255,255,0.94);border-radius:16px;padding:16px;min-height:110px;position:relative;}
+  .tc-grid{display:flex;flex-wrap:wrap;gap:18px;}
+  .tc-mon{position:relative;width:110px;text-align:center;}
+  .tc-mon img{width:96px;height:96px;object-fit:contain;}
+  .tc-mon .tc-name{font-size:11px;color:#333;text-transform:capitalize;font-weight:600;}
+  .tc-sparkle{position:absolute;color:#2E6FE0;font-size:14px;}
+  .tc-empty{color:#8a8a8a;font-size:13px;padding:20px;text-align:center;width:100%;}
+  .tc-trainer-row{
+    margin-top:16px;
+    background:rgba(255,255,255,0.94);
+    border-radius:16px;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  .tc-trainer-label{font-size:11px;color:#5b6b8c;text-transform:uppercase;letter-spacing:.06em;font-weight:700;text-align:center;}
+  .tc-trainer-code{font-size:20px;color:#1E4E9C;font-weight:600;letter-spacing:.04em;text-align:center;}
+
+  .trainer-code-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--line);
+  }
+  .trainer-code-row label{font-size:13px;color:var(--text-dim);font-family:'Baloo 2',sans-serif;}
+  .trainer-code-row input{width:180px;}
+
+  .banner{background:rgba(255,75,75,0.12);border:1px solid var(--red);color:var(--text);padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px;}
+  .retry-btn{background:var(--red);border:none;color:white;padding:6px 14px;border-radius:8px;cursor:pointer;margin-left:10px;}
+  .empty-note{color:var(--text-dim);font-size:13px;padding:20px;text-align:center;}
+  .signin-panel{max-width:420px;margin:80px auto;text-align:center;padding:44px 30px;}
+  .signin-panel .primary-btn{padding:12px 26px;font-size:15px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<script>
+/* ====== CONFIG — replace with your own Google Cloud OAuth Client ID ====== */
+const GOOGLE_CLIENT_ID = '2001238896-ht3k0nndbemo7rtp232mq010mu623s5g.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+const DRIVE_FILE_NAME = 'pokedex-tellez-data.json';
+
+const NATIONAL_DEX_MAX = 1025;
+const PAGE_SIZE = 48;
+
+let speciesList = [];
+let dexData = {};
+let formCatalog = {};
+let currentTab = 'dex';
+let dexPage = 1;
+let dexSearch = '';
+let dexRegion = 'all';
+
+const REGIONS = [
+  {key:'kanto', label:'Kanto', min:1, max:151},
+  {key:'johto', label:'Johto', min:152, max:251},
+  {key:'hoenn', label:'Hoenn', min:252, max:386},
+  {key:'sinnoh', label:'Sinnoh', min:387, max:493},
+  {key:'unova', label:'Unova', min:494, max:649},
+  {key:'kalos', label:'Kalos', min:650, max:721},
+  {key:'alola', label:'Alola', min:722, max:809},
+  {key:'galar', label:'Galar', min:810, max:905},
+  {key:'paldea', label:'Paldea', min:906, max:1025}
+];
+function regionForId(id){
+  return REGIONS.find(r=>id>=r.min && id<=r.max) || null;
+}
+let invFilter = '';
+let bootError = null;
+let modalId = null;
+let modalLoadingForms = false;
+let tradeWanted = [];
+let tradeOffering = [];
+let tradeSearch = '';
+let tradeCardHtml = '';
+let trainerCode = '';
+
+let tokenClient = null;
+let accessToken = null;
+let tokenExpiryMs = 0;
+let userProfile = null;
+let driveFileId = null;
+let saveTimer = null;
+
+function artUrl(id, shiny){
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${shiny ? 'shiny/' : ''}${id}.png`;
+}
+
+/* ---------------- AUTH ---------------- */
+
+function initAuth(){
+  if(typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2){
+    setTimeout(initAuth, 200);
+    return;
+  }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: SCOPES,
+    callback: handleTokenResponse
+  });
+  renderSignIn();
+}
+
+function renderSignIn(){
+  document.getElementById('app').innerHTML = `
+    <div class="panel signin-panel">
+      <div class="power-dot" style="margin:0 auto 14px;"></div>
+      <h1 class="display" style="margin:0 0 8px;">Personal Pokédex</h1>
+      <p class="bezel-sub" style="margin-bottom:26px;">Sign in with Google to load your dex, inventory, and trade lists.</p>
+      <button class="primary-btn" onclick="signIn()">Sign in with Google</button>
+    </div>
+  `;
+}
+
+function signIn(){
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+async function handleTokenResponse(resp){
+  if(resp.error){
+    console.error('auth error', resp);
+    return;
+  }
+  accessToken = resp.access_token;
+  tokenExpiryMs = Date.now() + (resp.expires_in * 1000);
+  try{
+    const uRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    userProfile = await uRes.json();
+  }catch(e){ /* profile is cosmetic only */ }
+  await bootApp();
+}
+
+function ensureFreshToken(){
+  return new Promise((resolve, reject)=>{
+    if(accessToken && Date.now() < tokenExpiryMs - 60000){ resolve(); return; }
+    tokenClient.callback = (resp)=>{
+      if(resp.error){ reject(resp); return; }
+      accessToken = resp.access_token;
+      tokenExpiryMs = Date.now() + (resp.expires_in * 1000);
+      resolve();
+    };
+    tokenClient.requestAccessToken({ prompt: '' });
+  });
+}
+
+function signOut(){
+  if(accessToken){
+    try{ google.accounts.oauth2.revoke(accessToken, ()=>{}); }catch(e){}
+  }
+  accessToken = null;
+  tokenExpiryMs = 0;
+  userProfile = null;
+  driveFileId = null;
+  dexData = {};
+  renderSignIn();
+}
+
+/* ---------------- DRIVE STORAGE ---------------- */
+
+async function driveEnsureFile(){
+  if(driveFileId) return driveFileId;
+  await ensureFreshToken();
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  const json = await res.json();
+  if(json.files && json.files.length){
+    driveFileId = json.files[0].id;
+    return driveFileId;
+  }
+  const boundary = 'pokedexboundary';
+  const metadata = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+    `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({ dexData: {} })}\r\n` +
+    `--${boundary}--`;
+  const createRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`
+    },
+    body
+  });
+  const createJson = await createRes.json();
+  driveFileId = createJson.id;
+  return driveFileId;
+}
+
+async function loadDexData(){
+  try{
+    const fileId = await driveEnsureFile();
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if(res.ok){
+      const json = await res.json();
+      dexData = json.dexData || {};
+      trainerCode = (json.profile && json.profile.trainerCode) || '';
+    } else {
+      dexData = {};
+    }
+  }catch(e){
+    console.error('Drive load failed', e);
+    dexData = {};
+  }
+}
+
+function saveDexData(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{
+      const fileId = await driveEnsureFile();
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ dexData, profile: { trainerCode } })
+      });
+    }catch(e){
+      console.error('Drive save failed', e);
+    }
+  }, 1200);
+}
+
+/* ---------------- SPECIES / FORM CACHE (local, not user data) ---------------- */
+
+async function loadSpeciesList(){
+  try{
+    const cached = localStorage.getItem('pokedex-species-list');
+    if(cached){ speciesList = JSON.parse(cached); return; }
+  }catch(e){}
+  const res = await fetch('https://pokeapi.co/api/v2/pokemon-species?limit=1302');
+  if(!res.ok) throw new Error('species fetch failed');
+  const json = await res.json();
+  speciesList = json.results.map(r=>{
+    const parts = r.url.split('/').filter(Boolean);
+    const id = parseInt(parts[parts.length-1]);
+    return {id, name:r.name};
+  }).filter(p=>p.id<=NATIONAL_DEX_MAX).sort((a,b)=>a.id-b.id);
+  try{ localStorage.setItem('pokedex-species-list', JSON.stringify(speciesList)); }catch(e){}
+}
+
+function getEntry(id){
+  if(!dexData[id]) dexData[id] = {caught:false, shiny:false, tradeQty:0, forms:{}};
+  return dexData[id];
+}
+function getFormEntry(id, formName){
+  const e = getEntry(id);
+  if(!e.forms[formName]) e.forms[formName] = {caught:false, shiny:false, tradeQty:0};
+  return e.forms[formName];
+}
+
+async function loadForms(id){
+  if(formCatalog[id]) return formCatalog[id];
+  try{
+    const cached = localStorage.getItem('pokedex-forms-'+id);
+    if(cached){ formCatalog[id] = JSON.parse(cached); return formCatalog[id]; }
+  }catch(e){}
+  try{
+    const sRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}/`);
+    const species = await sRes.json();
+    const varieties = (species.varieties||[]).filter(v=>!v.is_default);
+    const forms = [];
+    for(const v of varieties){
+      try{
+        const pRes = await fetch(v.pokemon.url);
+        const p = await pRes.json();
+        const art = p.sprites && p.sprites.other && p.sprites.other['official-artwork'];
+        forms.push({
+          name: v.pokemon.name,
+          displayName: v.pokemon.name.replace(`${species.name}-`,'').replace(/-/g,' ') || v.pokemon.name,
+          sprite: (art && art.front_default) || artUrl(p.id,false),
+          shinySprite: (art && art.front_shiny) || artUrl(p.id,true)
+        });
+      }catch(e){}
+    }
+    formCatalog[id] = forms;
+    try{ localStorage.setItem('pokedex-forms-'+id, JSON.stringify(forms)); }catch(e){}
+    return forms;
+  }catch(e){
+    formCatalog[id] = [];
+    return [];
+  }
+}
+
+function statCaughtCount(){
+  return Object.values(dexData).filter(e=>e.caught).length;
+}
+
+/* ---------------- RENDER ---------------- */
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="bezel">
+      <div class="bezel-title">
+        <div class="power-dot"></div>
+        <div>
+          <h1>Personal Pokédex</h1>
+          <div class="bezel-sub">Track it. Trade it.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div class="stat-pill">Caught <b>${statCaughtCount()}</b> / ${NATIONAL_DEX_MAX}</div>
+        ${userProfile ? `
+          <div class="profile-chip">
+            ${userProfile.picture ? `<img src="${userProfile.picture}" alt="">` : ''}
+            <span class="bezel-sub" style="margin:0;">${userProfile.name || userProfile.email || ''}</span>
+            <button class="tab-btn" style="padding:6px 12px;font-size:12px;" onclick="signOut()">Sign out</button>
+          </div>` : ''}
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn ${currentTab==='dex'?'active':''}" onclick="switchTab('dex')">Pokédex</button>
+      <button class="tab-btn ${currentTab==='inventory'?'active':''}" onclick="switchTab('inventory')">Inventory</button>
+      <button class="tab-btn ${currentTab==='trade'?'active':''}" onclick="switchTab('trade')">Trade Builder</button>
+    </div>
+    <div id="tabContent"></div>
+  `;
+  renderTabContent();
+}
+
+function switchTab(tab){
+  currentTab = tab;
+  render();
+}
+
+function renderTabContent(){
+  const el = document.getElementById('tabContent');
+  if(bootError){
+    el.innerHTML = `<div class="panel"><div class="banner">Could not load Pokémon data. Check your connection.<button class="retry-btn" onclick="bootApp()">Retry</button></div></div>`;
+    return;
+  }
+  if(currentTab==='dex') return renderDex(el);
+  if(currentTab==='inventory') return renderInventory(el);
+  if(currentTab==='trade') return renderTrade(el);
+}
+
+function filterDexList(){
+  return speciesList.filter(p=>{
+    if(dexSearch){
+      const q = dexSearch.toLowerCase();
+      if(!(p.name.includes(q) || String(p.id)===q)) return false;
+    }
+    if(dexRegion !== 'all'){
+      const r = regionForId(p.id);
+      if(!r || r.key !== dexRegion) return false;
+    }
+    return true;
+  });
+}
+
+function renderDex(el){
+  const filtered = filterDexList();
+  const shown = dexSearch ? filtered : filtered.slice(0, dexPage*PAGE_SIZE);
+  el.innerHTML = `
+    <div class="panel">
+      <div class="search-row">
+        <input type="text" id="dexSearchInput" placeholder="Search by name or dex #..." value="${dexSearch}">
+        <select id="dexRegionSelect">
+          <option value="all" ${dexRegion==='all'?'selected':''}>All Regions</option>
+          ${REGIONS.map(r=>`<option value="${r.key}" ${dexRegion===r.key?'selected':''}>${r.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="dex-grid" id="dexGrid"></div>
+      ${(!dexSearch && filtered.length > shown.length) ? '<button class="load-more" onclick="loadMore()">Load More</button>' : ''}
+    </div>
+  `;
+  renderDexGrid(shown);
+  document.getElementById('dexSearchInput').oninput = (ev)=>{
+    dexSearch = ev.target.value;
+    dexPage = 1;
+    renderTabContent();
+  };
+  document.getElementById('dexRegionSelect').onchange = (ev)=>{
+    dexRegion = ev.target.value;
+    dexPage = 1;
+    renderTabContent();
+  };
+}
+
+function renderDexGrid(shown){
+  const grid = document.getElementById('dexGrid');
+  const groupByRegion = !dexSearch && dexRegion === 'all';
+  let lastRegionKey = null;
+  let html = '';
+  shown.forEach(p=>{
+    if(groupByRegion){
+      const r = regionForId(p.id);
+      const key = r ? r.key : 'other';
+      if(key !== lastRegionKey){
+        lastRegionKey = key;
+        html += `<div class="region-header">${r ? r.label : 'Other'}</div>`;
+      }
+    }
+    const e = dexData[p.id];
+    const caught = e && e.caught;
+    const shiny = e && e.shiny;
+    html += `
+      <div class="dex-card" onclick="openDetail(${p.id})">
+        <div class="badge-row">
+          ${caught ? '<div class="badge caught" title="Caught">✓</div>' : ''}
+          ${shiny ? '<div class="badge shiny" title="Shiny">★</div>' : ''}
+        </div>
+        <img src="${artUrl(p.id,shiny)}" loading="lazy" alt="${p.name}" onerror="this.src='${artUrl(p.id,false)}'">
+        <div class="dex-num mono">#${String(p.id).padStart(4,'0')}</div>
+        <div class="dex-name">${p.name}</div>
+      </div>
+    `;
+  });
+  grid.innerHTML = html || '<div class="empty-note">No Pokémon match that search.</div>';
+}
+
+function loadMore(){
+  dexPage += 1;
+  renderTabContent();
+}
+
+async function openDetail(id){
+  modalId = id;
+  modalLoadingForms = true;
+  const species = speciesList.find(p=>p.id===id);
+  renderModal(species);
+  document.getElementById('overlay').classList.add('show');
+  const forms = await loadForms(id);
+  modalLoadingForms = false;
+  if(modalId===id) renderModal(species, forms);
+}
+
+function renderModal(species, forms){
+  const e = getEntry(species.id);
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-hero">
+      <img src="${artUrl(species.id, e.shiny)}" onerror="this.src='${artUrl(species.id,false)}'">
+      <div class="modal-num mono">#${String(species.id).padStart(4,'0')}</div>
+      <div class="modal-name display">${species.name}</div>
+    </div>
+    <div class="toggle-row">
+      <label>Caught</label>
+      <label class="switch"><input type="checkbox" ${e.caught?'checked':''} onchange="toggleCaught(${species.id})"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <label>Shiny</label>
+      <label class="switch"><input type="checkbox" ${e.shiny?'checked':''} ${e.caught?'':'disabled'} onchange="toggleShiny(${species.id})"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <label>Duplicates for trade</label>
+      <input type="number" min="0" class="qty-input" value="${e.tradeQty||0}" ${e.caught?'':'disabled'} onchange="setQty(${species.id}, this.value)">
+    </div>
+    <div class="forms-section">
+      <h3 style="margin:0 0 8px;font-size:16px;">Regional / Alternate Forms</h3>
+      ${modalLoadingForms ? '<div class="spinner"></div>' : renderFormsList(species.id, forms||[])}
+    </div>
+  `;
+}
+
+function renderFormsList(id, forms){
+  if(!forms.length) return '<div class="empty-note" style="padding:8px 0;">No alternate forms found for this species.</div>';
+  return forms.map(f=>{
+    const fe = getFormEntry(id, f.name);
+    return `
+      <div class="form-item">
+        <img src="${fe.shiny ? f.shinySprite : f.sprite}" alt="${f.displayName}">
+        <div class="fname">${f.displayName}</div>
+        <div class="mini-toggle">
+          <label class="switch" style="width:34px;height:18px;"><input type="checkbox" ${fe.caught?'checked':''} onchange="toggleFormCaught(${id}, '${f.name}')"><span class="slider"></span></label>
+          caught
+        </div>
+        <div class="mini-toggle">
+          <label class="switch" style="width:34px;height:18px;"><input type="checkbox" ${fe.shiny?'checked':''} ${fe.caught?'':'disabled'} onchange="toggleFormShiny(${id}, '${f.name}')"><span class="slider"></span></label>
+          shiny
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function closeModal(){
+  document.getElementById('overlay').classList.remove('show');
+  modalId = null;
+}
+
+function toggleCaught(id){
+  const e = getEntry(id);
+  e.caught = !e.caught;
+  if(!e.caught){ e.shiny=false; e.tradeQty=0; }
+  saveDexData();
+  const species = speciesList.find(p=>p.id===id);
+  renderModal(species, formCatalog[id]);
+  render();
+}
+function toggleShiny(id){
+  const e = getEntry(id);
+  e.shiny = !e.shiny;
+  saveDexData();
+  const species = speciesList.find(p=>p.id===id);
+  renderModal(species, formCatalog[id]);
+}
+function setQty(id, val){
+  const e = getEntry(id);
+  e.tradeQty = Math.max(0, parseInt(val)||0);
+  saveDexData();
+}
+function toggleFormCaught(id, formName){
+  const fe = getFormEntry(id, formName);
+  fe.caught = !fe.caught;
+  if(!fe.caught) fe.shiny = false;
+  saveDexData();
+  const species = speciesList.find(p=>p.id===id);
+  renderModal(species, formCatalog[id]);
+}
+function toggleFormShiny(id, formName){
+  const fe = getFormEntry(id, formName);
+  fe.shiny = !fe.shiny;
+  saveDexData();
+  const species = speciesList.find(p=>p.id===id);
+  renderModal(species, formCatalog[id]);
+}
+
+function renderInventory(el){
+  const rows = [];
+  Object.keys(dexData).forEach(idStr=>{
+    const id = parseInt(idStr);
+    const e = dexData[id];
+    const species = speciesList.find(p=>p.id===id);
+    if(!species) return;
+    if(e.caught) rows.push({id, name:species.name, shiny:e.shiny, tradeQty:e.tradeQty, form:null});
+    Object.keys(e.forms||{}).forEach(fname=>{
+      const fe = e.forms[fname];
+      if(fe.caught){
+        const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
+        rows.push({id, name: cat ? cat.displayName + ' ' + species.name : fname, shiny: fe.shiny, tradeQty: fe.tradeQty, form:fname});
+      }
+    });
+  });
+  const filtered = invFilter ? rows.filter(r=>r.name.toLowerCase().includes(invFilter.toLowerCase())) : rows;
+  el.innerHTML = `
+    <div class="panel">
+      <div class="search-row">
+        <input type="text" id="invSearchInput" placeholder="Filter your inventory..." value="${invFilter}">
+      </div>
+      ${filtered.length ? `<div class="inv-list">${filtered.map(r=>`
+        <div class="inv-row">
+          <img src="${r.form ? ((formCatalog[r.id]||[]).find(f=>f.name===r.form)||{})[r.shiny?'shinySprite':'sprite'] : artUrl(r.id, r.shiny)}" onerror="this.src='${artUrl(r.id,false)}'">
+          <div class="name">${r.name}</div>
+          ${r.shiny ? '<div class="tag">★ shiny</div>' : ''}
+          ${r.tradeQty>0 ? `<div class="tag">×${r.tradeQty} for trade</div>` : ''}
+        </div>
+      `).join('')}</div>` : '<div class="empty-note">Nothing caught yet. Head to the Pokédex tab to start tracking.</div>'}
+    </div>
+  `;
+  document.getElementById('invSearchInput').oninput = (ev)=>{ invFilter = ev.target.value; renderTabContent(); };
+}
+
+function renderTrade(el){
+  const results = tradeSearch ? speciesList.filter(p=>{
+    const q = tradeSearch.toLowerCase();
+    return p.name.includes(q) || String(p.id)===q;
+  }).slice(0,20) : [];
+
+  const ownedRows = [];
+  Object.keys(dexData).forEach(idStr=>{
+    const id = parseInt(idStr);
+    const e = dexData[id];
+    const species = speciesList.find(p=>p.id===id);
+    if(!species) return;
+    if(e.caught) ownedRows.push({id, key:`${id}`, name:species.name, shiny:e.shiny, tradeQty:e.tradeQty, form:null});
+    Object.keys(e.forms||{}).forEach(fname=>{
+      const fe = e.forms[fname];
+      if(fe.caught){
+        const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
+        ownedRows.push({id, key:`${id}-${fname}`, name: cat ? cat.displayName+' '+species.name : fname, shiny: fe.shiny, tradeQty: fe.tradeQty, form:fname});
+      }
+    });
+  });
+
+  el.innerHTML = `
+    <div class="panel">
+      <div class="trainer-code-row">
+        <label for="trainerCodeInput">Your Trainer Code</label>
+        <input type="text" id="trainerCodeInput" placeholder="1234 5678 9012" maxlength="14" value="${trainerCode}">
+        <span class="bezel-sub" style="margin:0;">Shown on your trade card.</span>
+      </div>
+      <div class="trade-cols">
+        <div>
+          <h3 class="display" style="margin-top:0;">Wanted</h3>
+          <input type="text" id="tradeSearchInput" placeholder="Search Pokémon to add..." value="${tradeSearch}">
+          <div class="search-results" id="tradeSearchResults">${results.map(p=>`
+            <div class="sr-item" onclick="addWanted(${p.id})">
+              <img src="${artUrl(p.id,false)}">
+              <span style="text-transform:capitalize;font-size:13px;">${p.name}</span>
+            </div>
+          `).join('')}</div>
+          <div class="trade-list">${tradeWanted.map((w,i)=>`
+            <div class="trade-item">
+              <img src="${artUrl(w.id, w.shiny)}" onerror="this.src='${artUrl(w.id,false)}'">
+              <span>${w.name}</span>
+              <label class="mini-toggle"><input type="checkbox" ${w.shiny?'checked':''} onchange="toggleWantedShiny(${i})"> shiny</label>
+              <button class="x-btn" onclick="removeWanted(${i})">✕</button>
+            </div>
+          `).join('') || '<div class="empty-note">No Pokémon added yet.</div>'}</div>
+        </div>
+        <div>
+          <h3 class="display" style="margin-top:0;">Offering (from your inventory)</h3>
+          <div class="trade-list" style="max-height:340px;">${ownedRows.length ? ownedRows.map(r=>{
+            const checked = tradeOffering.includes(r.key);
+            return `
+            <div class="trade-item">
+              <img src="${r.form ? ((formCatalog[r.id]||[]).find(f=>f.name===r.form)||{})[r.shiny?'shinySprite':'sprite'] : artUrl(r.id, r.shiny)}" onerror="this.src='${artUrl(r.id,false)}'">
+              <span>${r.name}${r.tradeQty>0?` (×${r.tradeQty})`:''}</span>
+              <label class="mini-toggle"><input type="checkbox" ${checked?'checked':''} onchange="toggleOffering('${r.key}')"> offer</label>
+            </div>
+          `;}).join('') : '<div class="empty-note">Mark Pokémon as caught in the Pokédex tab to offer them.</div>'}</div>
+        </div>
+      </div>
+      <button class="primary-btn" onclick="generateTradeCard()">Generate Trade Card</button>
+      <div id="tradeCardWrap"></div>
+    </div>
+  `;
+  document.getElementById('tradeSearchInput').oninput = (ev)=>{ tradeSearch = ev.target.value; renderTabContent(); };
+  document.getElementById('trainerCodeInput').onchange = (ev)=>{
+    trainerCode = ev.target.value.trim();
+    saveDexData();
+  };
+
+  if(tradeCardHtml){
+    document.getElementById('tradeCardWrap').innerHTML = tradeCardHtml + `<button class="primary-btn" onclick="downloadTradeCard()">Download Image</button>`;
+  }
+}
+
+function addWanted(id){
+  const species = speciesList.find(p=>p.id===id);
+  if(!species) return;
+  if(tradeWanted.find(w=>w.id===id)) return;
+  tradeWanted.push({id, name:species.name, shiny:false});
+  tradeSearch = '';
+  renderTabContent();
+}
+function removeWanted(i){ tradeWanted.splice(i,1); renderTabContent(); }
+function toggleWantedShiny(i){ tradeWanted[i].shiny = !tradeWanted[i].shiny; renderTabContent(); }
+function toggleOffering(key){
+  const idx = tradeOffering.indexOf(key);
+  if(idx>-1) tradeOffering.splice(idx,1); else tradeOffering.push(key);
+  renderTabContent();
+}
+
+function generateTradeCard(){
+  const offeringData = [];
+  tradeOffering.forEach(key=>{
+    const [idStr, ...formParts] = key.split('-');
+    const id = parseInt(idStr);
+    const formName = formParts.join('-') || null;
+    const species = speciesList.find(p=>p.id===id);
+    if(!species) return;
+    if(formName){
+      const e = dexData[id];
+      const fe = e && e.forms ? e.forms[formName] : null;
+      const cat = (formCatalog[id]||[]).find(f=>f.name===formName);
+      offeringData.push({
+        name: cat ? cat.displayName+' '+species.name : formName,
+        shiny: fe ? fe.shiny : false,
+        sprite: cat ? (fe && fe.shiny ? cat.shinySprite : cat.sprite) : artUrl(id,false)
+      });
+    } else {
+      const e = dexData[id];
+      offeringData.push({ name: species.name, shiny: e ? e.shiny : false, sprite: artUrl(id, e ? e.shiny : false) });
+    }
+  });
+
+  const wantedBoxes = tradeWanted.map(w=>`
+    <div class="tc-mon">
+      ${w.shiny ? '<div class="tc-sparkle" style="top:0;right:6px;">✦</div><div class="tc-sparkle" style="bottom:20px;left:2px;">✦</div>' : ''}
+      <img src="${artUrl(w.id, w.shiny)}" onerror="this.src='${artUrl(w.id,false)}'">
+      <div class="tc-name">${w.name}</div>
+    </div>
+  `).join('');
+
+  const offerBoxes = offeringData.map(o=>`
+    <div class="tc-mon">
+      ${o.shiny ? '<div class="tc-sparkle" style="top:0;right:6px;">✦</div><div class="tc-sparkle" style="bottom:20px;left:2px;">✦</div>' : ''}
+      <img src="${o.sprite}">
+      <div class="tc-name">${o.name}</div>
+    </div>
+  `).join('');
+
+  const digits = trainerCode.replace(/\D/g,'');
+  const formattedCode = digits ? digits.replace(/(\d{4})(?=\d)/g,'$1 ').trim() : '';
+
+  tradeCardHtml = `
+    <div id="tradeCard">
+      <div class="tc-title">Pokémon Trade List</div>
+      <div class="tc-section-label"><div class="tc-ball"></div> Wanted Pokémon</div>
+      <div class="tc-box"><div class="tc-grid">${wantedBoxes || '<div class="tc-empty">Nothing added yet</div>'}</div></div>
+      <div class="tc-section-label"><div class="tc-ball"></div> Pokémon I can offer</div>
+      <div class="tc-box"><div class="tc-grid">${offerBoxes || '<div class="tc-empty">Nothing selected yet</div>'}</div></div>
+      ${formattedCode ? `
+      <div class="tc-trainer-row">
+        <div class="tc-trainer-text">
+          <div class="tc-trainer-label">Trainer Code</div>
+          <div class="tc-trainer-code mono">${formattedCode}</div>
+        </div>
+      </div>` : ''}
+    </div>
+  `;
+  renderTabContent();
+}
+
+function downloadTradeCard(){
+  const node = document.getElementById('tradeCard');
+  if(!node || typeof html2canvas==='undefined') return;
+  html2canvas(node, {backgroundColor:null, scale:2}).then(canvas=>{
+    const link = document.createElement('a');
+    link.download = 'pokemon-trade-list.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+}
+
+/* ---------------- BOOT ---------------- */
+
+async function bootApp(){
+  document.getElementById('app').innerHTML = '<div class="panel" style="text-align:center;padding:60px;"><div class="spinner"></div><div class="bezel-sub">Loading your Pokédex...</div></div>';
+  bootError = null;
+  try{
+    await loadSpeciesList();
+    await loadDexData();
+    render();
+  }catch(e){
+    bootError = e;
+    render();
+  }
+}
+
+window.onload = initAuth;
+</script>
+</body>
+</html>
