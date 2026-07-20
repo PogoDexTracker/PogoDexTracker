@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v0.2.3 Beta
+# POGO Dex Tracker — v0.3.1 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v0.2.3 — see changelog below)
+Last updated: July 20, 2026 (v0.3.1 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,14 @@ Last updated: July 20, 2026 (v0.2.3 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v0.3.1 Beta
+- Added "Export to Google Sheets" on the Inventory tab. Creates a new spreadsheet in your Drive with a row per caught Pokémon (including forms): sprite image (via Sheets' native `=IMAGE()` formula), Dex #, Name, Shiny, and Trade Qty columns, with column/row sizing set so images display at a reasonable size. Opens the new sheet in a new tab when done.
+- This reuses the existing `drive.file` scope already granted, no new permission prompt required.
+
+### v0.3 Beta
+- **Fixed a bug**: typing in the Trade Builder search box lost cursor focus after every character, since each keystroke was re-rendering the whole tab (including the input itself). Fixed by only re-rendering the search results dropdown on input, leaving the input element untouched. Found and fixed the same underlying bug on the Pokédex tab's search box while in there, even though it wasn't reported, since it was the identical pattern.
+- Redesigned the Trade Card background from a generic blue gradient to a Master Ball-inspired holo look: deep purple-to-black base, pink/magenta swirl accents, and a diagonal holo-foil sheen. Text and sparkle accent colors updated to match.
 
 ### v0.2.3 Beta
 - Replaced the "Load More" pagination button with collapsible region sections in the Pokédex tab. Each region (Kanto through Paldea) is now its own accordion, collapsed by default, with a caught-count badge (e.g. "42/151 caught") and a ▸/▾ chevron. Click a region's header to expand or collapse it.
