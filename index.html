@@ -378,6 +378,7 @@ let modalLoadingForms = false;
 let tradeWanted = [];
 let tradeOffering = [];
 let tradeSearch = '';
+let offeringFilter = '';
 let tradeCardHtml = '';
 let trainerCode = '';
 
@@ -565,7 +566,7 @@ function getFormEntry(id, formName){
 async function loadForms(id){
   if(formCatalog[id]) return formCatalog[id];
   try{
-    const cached = localStorage.getItem('pokedex-forms-'+id);
+    const cached = localStorage.getItem('pokedex-forms-v2-'+id);
     if(cached){ formCatalog[id] = JSON.parse(cached); return formCatalog[id]; }
   }catch(e){}
   try{
@@ -578,16 +579,20 @@ async function loadForms(id){
         const pRes = await fetch(v.pokemon.url);
         const p = await pRes.json();
         const art = p.sprites && p.sprites.other && p.sprites.other['official-artwork'];
+        const reg = p.sprites || {};
+        // PokeAPI's official-artwork field is frequently null for regional/alternate
+        // form varieties (a known gap in their sprite data), so fall back to the
+        // variety's regular sprite before falling back to the base species artwork.
         forms.push({
           name: v.pokemon.name,
           displayName: v.pokemon.name.replace(`${species.name}-`,'').replace(/-/g,' ') || v.pokemon.name,
-          sprite: (art && art.front_default) || artUrl(p.id,false),
-          shinySprite: (art && art.front_shiny) || artUrl(p.id,true)
+          sprite: (art && art.front_default) || reg.front_default || artUrl(id,false),
+          shinySprite: (art && art.front_shiny) || reg.front_shiny || artUrl(id,true)
         });
       }catch(e){}
     }
     formCatalog[id] = forms;
-    try{ localStorage.setItem('pokedex-forms-'+id, JSON.stringify(forms)); }catch(e){}
+    try{ localStorage.setItem('pokedex-forms-v2-'+id, JSON.stringify(forms)); }catch(e){}
     return forms;
   }catch(e){
     formCatalog[id] = [];
@@ -1061,22 +1066,6 @@ function renderTrade(el){
     return p.name.includes(q) || String(p.id)===q;
   }).slice(0,20) : [];
 
-  const ownedRows = [];
-  Object.keys(dexData).forEach(idStr=>{
-    const id = parseInt(idStr);
-    const e = dexData[id];
-    const species = speciesList.find(p=>p.id===id);
-    if(!species) return;
-    if(e.caught) ownedRows.push({id, key:`${id}`, name:species.name, shiny:e.shiny, tradeQty:e.tradeQty, form:null});
-    Object.keys(e.forms||{}).forEach(fname=>{
-      const fe = e.forms[fname];
-      if(fe.caught){
-        const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
-        ownedRows.push({id, key:`${id}-${fname}`, name: cat ? cat.displayName+' '+species.name : fname, shiny: fe.shiny, tradeQty: fe.tradeQty, form:fname});
-      }
-    });
-  });
-
   el.innerHTML = `
     <div class="panel">
       <div class="trade-cols">
@@ -1100,29 +1089,57 @@ function renderTrade(el){
         </div>
         <div>
           <h3 class="display" style="margin-top:0;">Offering (from your inventory)</h3>
-          <div class="trade-list" style="max-height:340px;">${ownedRows.length ? ownedRows.map(r=>{
-            const checked = tradeOffering.includes(r.key);
-            return `
-            <div class="trade-item">
-              <img src="${r.form ? ((formCatalog[r.id]||[]).find(f=>f.name===r.form)||{})[r.shiny?'shinySprite':'sprite'] : artUrl(r.id, r.shiny)}" onerror="this.src='${artUrl(r.id,false)}'">
-              <span>${r.name}${r.tradeQty>0?` (×${r.tradeQty})`:''}</span>
-              <label class="mini-toggle"><input type="checkbox" ${checked?'checked':''} onchange="toggleOffering('${r.key}')"> offer</label>
-            </div>
-          `;}).join('') : '<div class="empty-note">Mark Pokémon as caught in the Pokédex tab to offer them.</div>'}</div>
+          <input type="text" id="offeringFilterInput" placeholder="Filter your inventory..." value="${offeringFilter}">
+          <div class="trade-list" id="offeringList" style="max-height:340px;margin-top:10px;"></div>
         </div>
       </div>
       <button class="primary-btn" onclick="generateTradeCard()">Generate Trade Card</button>
       <div id="tradeCardWrap"></div>
     </div>
   `;
+  updateOfferingList();
   document.getElementById('tradeSearchInput').oninput = (ev)=>{
     tradeSearch = ev.target.value;
     updateTradeSearchResults();
+  };
+  document.getElementById('offeringFilterInput').oninput = (ev)=>{
+    offeringFilter = ev.target.value;
+    updateOfferingList();
   };
 
   if(tradeCardHtml){
     document.getElementById('tradeCardWrap').innerHTML = tradeCardHtml + `<button class="primary-btn" onclick="downloadTradeCard()">Download Image</button>`;
   }
+}
+
+function updateOfferingList(){
+  const listEl = document.getElementById('offeringList');
+  if(!listEl) return;
+  const ownedRows = [];
+  Object.keys(dexData).forEach(idStr=>{
+    const id = parseInt(idStr);
+    const e = dexData[id];
+    const species = speciesList.find(p=>p.id===id);
+    if(!species) return;
+    if(e.caught) ownedRows.push({id, key:`${id}`, name:species.name, shiny:e.shiny, tradeQty:e.tradeQty, form:null});
+    Object.keys(e.forms||{}).forEach(fname=>{
+      const fe = e.forms[fname];
+      if(fe.caught){
+        const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
+        ownedRows.push({id, key:`${id}-${fname}`, name: cat ? cat.displayName+' '+species.name : fname, shiny: fe.shiny, tradeQty: fe.tradeQty, form:fname});
+      }
+    });
+  });
+  const filtered = offeringFilter ? ownedRows.filter(r=>r.name.toLowerCase().includes(offeringFilter.toLowerCase())) : ownedRows;
+  listEl.innerHTML = filtered.length ? filtered.map(r=>{
+    const checked = tradeOffering.includes(r.key);
+    return `
+    <div class="trade-item">
+      <img src="${r.form ? ((formCatalog[r.id]||[]).find(f=>f.name===r.form)||{})[r.shiny?'shinySprite':'sprite'] : artUrl(r.id, r.shiny)}" onerror="this.src='${artUrl(r.id,false)}'">
+      <span>${r.name}${r.tradeQty>0?` (×${r.tradeQty})`:''}</span>
+      <label class="mini-toggle"><input type="checkbox" ${checked?'checked':''} onchange="toggleOffering('${r.key}')"> offer</label>
+    </div>
+  `;}).join('') : `<div class="empty-note">${ownedRows.length ? 'No matches in your inventory.' : 'Mark Pokémon as caught in the Pokédex tab to offer them.'}</div>`;
 }
 
 function updateTradeSearchResults(){
@@ -1182,7 +1199,7 @@ function generateTradeCard(){
   const wantedBoxes = tradeWanted.map(w=>`
     <div class="tc-mon">
       ${w.shiny ? '<div class="tc-sparkle" style="top:0;right:6px;">✦</div><div class="tc-sparkle" style="bottom:20px;left:2px;">✦</div>' : ''}
-      <img src="${artUrl(w.id, w.shiny)}" onerror="this.src='${artUrl(w.id,false)}'">
+      <img src="${artUrl(w.id, w.shiny)}" crossorigin="anonymous" onerror="this.src='${artUrl(w.id,false)}'">
       <div class="tc-name">${w.name}</div>
     </div>
   `).join('');
@@ -1190,7 +1207,7 @@ function generateTradeCard(){
   const offerBoxes = offeringData.map(o=>`
     <div class="tc-mon">
       ${o.shiny ? '<div class="tc-sparkle" style="top:0;right:6px;">✦</div><div class="tc-sparkle" style="bottom:20px;left:2px;">✦</div>' : ''}
-      <img src="${o.sprite}">
+      <img src="${o.sprite}" crossorigin="anonymous">
       <div class="tc-name">${o.name}</div>
     </div>
   `).join('');
@@ -1220,7 +1237,7 @@ function generateTradeCard(){
 function downloadTradeCard(){
   const node = document.getElementById('tradeCard');
   if(!node || typeof html2canvas==='undefined') return;
-  html2canvas(node, {backgroundColor:null, scale:2}).then(canvas=>{
+  html2canvas(node, {backgroundColor:null, scale:2, useCORS:true, allowTaint:false}).then(canvas=>{
     const link = document.createElement('a');
     link.download = 'pokemon-trade-list.png';
     link.href = canvas.toDataURL('image/png');

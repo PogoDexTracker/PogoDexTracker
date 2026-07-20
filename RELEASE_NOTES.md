@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v0.3.2 Beta
+# POGO Dex Tracker — v4.0 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v0.3.2 — see changelog below)
+Last updated: July 20, 2026 (v4.0 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,11 @@ Last updated: July 20, 2026 (v0.3.2 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v4.0 Beta
+- Added a search/filter bar to the Offering side of the Trade Builder tab, filtering your caught inventory by name as your collection grows.
+- **Fixed alternate/regional forms not displaying properly**: PokeAPI's official-artwork field is frequently empty for regional/alternate form varieties (a known gap in their sprite data). Forms now fall back to the variety's regular sprite before falling back to base species artwork, so forms that previously showed broken or incorrect images should now display correctly. Local form cache was invalidated so this takes effect immediately rather than serving old cached data.
+- **Fixed trade card downloads missing Pokémon artwork**: html2canvas was silently dropping cross-origin images (the sprite artwork) since neither the `<img>` tags nor the export call were configured for CORS. Added `crossorigin="anonymous"` to trade card images and enabled CORS mode in the export, so downloaded PNGs now actually include the Pokémon art.
 
 ### v0.3.2 Beta
 - **Fixed a bug**: the account dropdown menu (Profile/Sign out under your name in the header) was getting clipped by the header panel's `overflow:hidden` (used to round off the diagonal stripe background pattern), so it appeared cut off instead of floating above the page. Fixed by giving the stripe pattern its own rounded corners instead of relying on clipping the whole header.
