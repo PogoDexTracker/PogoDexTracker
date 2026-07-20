@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v0.5 Beta
+# POGO Dex Tracker — v0.5.1 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v0.5 — see changelog below)
+Last updated: July 20, 2026 (v0.5.1 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,9 @@ Last updated: July 20, 2026 (v0.5 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v0.5.1 Beta
+- Reverted the Base/Shiny/Alternate section split from v0.5 back to a single flat inventory list, per feedback. Delete (🗑) buttons per row are kept. Forms still show as text (no image) since that data source limitation hasn't changed.
 
 ### v0.5 Beta
 - Inventory tab now split into three sections: **Base**, **Shiny**, and **Alternate** (forms), each with its own count badge.
