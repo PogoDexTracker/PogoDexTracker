@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v0.2 Beta
+# POGO Dex Tracker — v0.2.3 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v0.2 — see changelog below)
+Last updated: July 20, 2026 (v0.2.3 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,17 @@ Last updated: July 20, 2026 (v0.2 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v0.2.3 Beta
+- Replaced the "Load More" pagination button with collapsible region sections in the Pokédex tab. Each region (Kanto through Paldea) is now its own accordion, collapsed by default, with a caught-count badge (e.g. "42/151 caught") and a ▸/▾ chevron. Click a region's header to expand or collapse it.
+- Region filter (dropdown) and search still show a flat list, bypassing the accordion, since those already narrow things down.
+
+### v0.2.2 Beta
+- Moved Profile out of the main tab bar. It's now reached via a dropdown under your Google account name/photo in the header (marked with a ▾ caret), which also holds Sign out.
+
+### v0.2.1 Beta
+- Fixed Trainer Code field not applying the "1234 5678 9012" grouping format to entered text (was only shown in the placeholder). Now auto-formats live as you type.
+- Added a copy-to-clipboard icon button next to the Trainer Code field on the Profile tab.
 
 ### v0.2 Beta (since initial v0.1 Beta release)
 
