@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v0.3.1 Beta
+# POGO Dex Tracker — v0.3.2 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v0.3.1 — see changelog below)
+Last updated: July 20, 2026 (v0.3.2 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,9 @@ Last updated: July 20, 2026 (v0.3.1 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v0.3.2 Beta
+- **Fixed a bug**: the account dropdown menu (Profile/Sign out under your name in the header) was getting clipped by the header panel's `overflow:hidden` (used to round off the diagonal stripe background pattern), so it appeared cut off instead of floating above the page. Fixed by giving the stripe pattern its own rounded corners instead of relying on clipping the whole header.
 
 ### v0.3.1 Beta
 - Added "Export to Google Sheets" on the Inventory tab. Creates a new spreadsheet in your Drive with a row per caught Pokémon (including forms): sprite image (via Sheets' native `=IMAGE()` formula), Dex #, Name, Shiny, and Trade Qty columns, with column/row sizing set so images display at a reasonable size. Opens the new sheet in a new tab when done.
