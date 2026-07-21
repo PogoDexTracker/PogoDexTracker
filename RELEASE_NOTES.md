@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v1.3 Beta
+# POGO Dex Tracker — v1.4 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v1.3 — see changelog below)
+Last updated: July 20, 2026 (v1.4 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,17 @@ Last updated: July 20, 2026 (v1.3 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v1.4 Beta — Simplified interaction model (walked back v1.0's quantities)
+Direct response to feedback that number entry was tedious. This walks the data model back from v1.0's quantity counters to simple on/off toggles, while keeping a safe trade-confirmation flow.
+
+- **Caught/Shiny are checkmarks again**, not number fields, tap to toggle, same as the original design. Independent for normal vs. shiny.
+- **Trade Available is now a simple toggle** ("do I have a spare of this to offer?"), not a quantity. Existing data with actual quantities migrates automatically: any prior quantity greater than zero becomes "available," zero becomes "not available."
+- **Detail modal removed entirely**, replaced by an inline **"View Variations"** expand right on each dex card. No more popup, everything happens in place: Trade Available toggles for the base Pokémon, plus each regional/alternate form with its own Caught/Shiny/Trade-Available toggles.
+- **New sparkle icon** for shiny status, an original design (not a copy of the game's own icon asset, that stays their IP) inspired by the general "sparkle badge" convention used across countless apps.
+- **Trade Builder Offering list** simplified to checkboxes (anything flagged Trade Available shows up, check what you want on this card).
+- **Confirm Trade Completed reworked around a snapshot**: Generate Trade Card now locks in exactly what was selected at that moment. Confirm only acts on that locked-in snapshot, flipping Trade Available off for those specific items, so changing your selections after generating a card can't accidentally clear the wrong things.
+- Google Sheets export simplified to match (Shiny / Trade Available columns as Yes/No, no quantity columns).
 
 ### v1.3 Beta — PoGoAPI.net data layer
 Data accuracy layer added from PoGoAPI.net; images continue to come entirely from the existing PokeAPI-based sprite pipeline, this integration only adds GO-specific facts on top.
