@@ -727,7 +727,7 @@ function getFormEntry(id, formName){
 async function loadForms(id){
   if(formCatalog[id]) return formCatalog[id];
   try{
-    const cached = localStorage.getItem('pokedex-forms-v3-'+id);
+    const cached = localStorage.getItem('pokedex-forms-v4-'+id);
     if(cached){ formCatalog[id] = JSON.parse(cached); return formCatalog[id]; }
   }catch(e){}
   try{
@@ -736,17 +736,15 @@ async function loadForms(id){
     const varieties = (species.varieties||[]).filter(v=>!v.is_default);
     const forms = [];
     for(const v of varieties){
-      // Only keep regional variants PoGoAPI actually confirms exist in GO.
-      // PokeAPI's variety list reflects the mainline games broadly (Mega
-      // evolutions, Totem forms, Hisuian/Paldean forms, etc.), many of which
-      // either don't exist in GO the same way or aren't yet confirmed by
-      // PoGoAPI's more limited released-forms lists, so they're excluded
-      // here rather than risk showing something that isn't real GO content.
+      // Show every PokeAPI variety (regional forms, event costumes, caps,
+      // etc.) rather than filtering any out — PoGoAPI only confirms Alolan/
+      // Galarian releases specifically, so excluding anything else risked
+      // hiding real GO content it simply doesn't track (e.g. Pikachu's
+      // costume/cap variants, which are real GO releases but aren't
+      // regional forms). Confirmation status is shown as a badge instead.
       const isAlolan = v.pokemon.name.endsWith('-alola');
       const isGalarian = v.pokemon.name.endsWith('-galar');
-      if(isAlolan && !pogoAlolan[id]) continue;
-      if(isGalarian && !pogoGalarian[id]) continue;
-      if(!isAlolan && !isGalarian) continue;
+      const confirmed = (isAlolan && pogoAlolan[id]) || (isGalarian && pogoGalarian[id]) || (!isAlolan && !isGalarian);
       try{
         const pRes = await fetch(v.pokemon.url);
         const p = await pRes.json();
@@ -759,7 +757,8 @@ async function loadForms(id){
           name: v.pokemon.name,
           displayName: v.pokemon.name.replace(`${species.name}-`,'').replace(/-/g,' ') || v.pokemon.name,
           sprite: (art && art.front_default) || reg.front_default || artUrl(id,false),
-          shinySprite: (art && art.front_shiny) || reg.front_shiny || artUrl(id,true)
+          shinySprite: (art && art.front_shiny) || reg.front_shiny || artUrl(id,true),
+          goConfirmed: confirmed
         });
       }catch(e){}
     }
@@ -772,11 +771,12 @@ async function loadForms(id){
         name: `${species.name}-shadow`,
         displayName: 'Shadow',
         sprite: artUrl(id, false),
-        shinySprite: artUrl(id, true)
+        shinySprite: artUrl(id, true),
+        goConfirmed: true
       });
     }
     formCatalog[id] = forms;
-    try{ localStorage.setItem('pokedex-forms-v3-'+id, JSON.stringify(forms)); }catch(e){}
+    try{ localStorage.setItem('pokedex-forms-v4-'+id, JSON.stringify(forms)); }catch(e){}
     return forms;
   }catch(e){
     formCatalog[id] = [];
@@ -1023,7 +1023,7 @@ function renderVariationsPanelContent(id){
       return `
         <div class="form-item">
           <img src="${formShiny ? f.shinySprite : f.sprite}" alt="${f.displayName}">
-          <div class="fname">${f.displayName}</div>
+          <div class="fname">${f.displayName}${f.goConfirmed ? '' : ' <span class="unreleased-badge">(unconfirmed in GO)</span>'}</div>
           <div class="form-toggle-row">
             <button class="qt-btn ${fe.caughtNormal?'active':''}" title="Mark caught" onclick="toggleFormCaught(${id}, '${f.name}')">✓</button>
             <button class="qt-btn shiny ${fe.caughtShiny?'active':''}" title="Mark shiny" onclick="toggleFormShiny(${id}, '${f.name}')">${SPARKLE_ICON}</button>

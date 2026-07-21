@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v1.4 Beta
+# POGO Dex Tracker — v1.4.1 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v1.4 — see changelog below)
+Last updated: July 20, 2026 (v1.4.1 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,10 @@ Last updated: July 20, 2026 (v1.4 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v1.4.1 Beta
+- **Fixed a regression from v1.3**: the tightened "only show PoGoAPI-confirmed Alolan/Galarian forms" filter had the side effect of hiding *all* of Pikachu's variations (and any other species whose real GO variants are event costumes/caps rather than regional forms), since those don't match the Alolan/Galarian naming pattern the filter checked for. Reverted to showing every PokeAPI variety again. PoGoAPI confirmation now shows as an "(unconfirmed in GO)" badge on the form instead of hiding it outright, informational rather than exclusionary.
+- Also fixed a cache key mismatch introduced in that same change (forms were being saved under one key and read from another, so the fix wouldn't have taken effect on repeat visits without this).
 
 ### v1.4 Beta — Simplified interaction model (walked back v1.0's quantities)
 Direct response to feedback that number entry was tedious. This walks the data model back from v1.0's quantity counters to simple on/off toggles, while keeping a safe trade-confirmation flow.
