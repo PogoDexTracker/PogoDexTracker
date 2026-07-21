@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v1.0 Beta
+# POGO Dex Tracker — v1.2 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v1.0 — see changelog below)
+Last updated: July 20, 2026 (v1.2 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,15 @@ Last updated: July 20, 2026 (v1.0 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v1.2 Beta
+- Swapped the header's paw-print watermark for a subtle lightning bolt watermark instead, per follow-up request. Same low-opacity slate blue-gray treatment, same tiling approach, just a different shape. Original bolt artwork drawn for this, not a copy of any specific reference image.
+
+### v1.1 Beta — Visual refresh
+- Swapped the bright phosphor-green accent for a more muted, understated slate blue-gray throughout the app chrome (buttons, tabs, highlights). Deep navy base kept as-is.
+- Replaced the diagonal pinstripe texture in the header with a subtle, generic paw-print watermark, echoing the footprint marker already in the app's own logo, rather than the busier stripe pattern.
+- Note: a literal Pikachu silhouette was requested for this but wasn't used since that would reproduce a specific copyrighted character design; the generic paw-print keeps the "tracking" theme without that issue.
+- Trade card (Master Ball holo) styling left as-is, that was a deliberate, separate look from the main app chrome.
 
 ### v1.0 Beta — Inventory quantity rework
 This is a genuine architecture change: caught/shiny went from a single boolean per species to real quantity counters, split independently for normal and shiny. Your existing data migrates automatically on first load after updating, nothing is lost.
