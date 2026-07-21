@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v1.2 Beta
+# POGO Dex Tracker — v1.3 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v1.2 — see changelog below)
+Last updated: July 20, 2026 (v1.3 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,15 @@ Last updated: July 20, 2026 (v1.2 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v1.3 Beta — PoGoAPI.net data layer
+Data accuracy layer added from PoGoAPI.net; images continue to come entirely from the existing PokeAPI-based sprite pipeline, this integration only adds GO-specific facts on top.
+
+- **Not-yet-released Pokémon** now show visibly dimmed in the Pokédex grid with a "Not in GO yet" label, based on PoGoAPI's `released_pokemon.json`. If PoGoAPI fails to load for any reason, the app falls back to treating everything as released rather than dimming the whole dex incorrectly.
+- **Shiny availability note** added to the Pokédex detail modal (e.g. "Shiny available: Wild, Raid" or "Shiny not yet available in GO"), from `shiny_pokemon.json`.
+- **Alternate forms tightened to confirmed GO content**: the Forms list now only shows Alolan/Galarian variants that PoGoAPI's `alolan_pokemon.json`/`galarian_pokemon.json` actually confirm exist in GO, rather than every mainline-game variety PokeAPI happens to list (which included things like Mega/Totem/Hisuian/Paldean forms that aren't real GO content, or in some cases weren't actually confirmed released). Local form cache bumped again to clear out the old broader list.
+- **Shadow added as a form option** where PoGoAPI's `shadow_pokemon.json` confirms it, since Shadow is GO-exclusive and never existed as a PokeAPI variety. Known simplification: there's no distinct Shadow artwork source available yet, so it currently reuses the base species art rather than a Shadow-specific sprite.
+- PoGoAPI data is cached locally and refreshed once every 24 hours.
 
 ### v1.2 Beta
 - Swapped the header's paw-print watermark for a subtle lightning bolt watermark instead, per follow-up request. Same low-opacity slate blue-gray treatment, same tiling approach, just a different shape. Original bolt artwork drawn for this, not a copy of any specific reference image.

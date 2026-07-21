@@ -192,6 +192,9 @@
     position:relative;
   }
   .dex-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .dex-card.unreleased{opacity:0.45;}
+  .dex-card.unreleased:hover{opacity:0.7;}
+  .unreleased-badge{font-size:9px;color:var(--text-dim);margin-top:2px;}
   .dex-card img{width:72px;height:72px;object-fit:contain;}
   .dex-num{color:var(--text-dim);font-size:11px;}
   .dex-name{font-size:13px;font-weight:700;text-transform:capitalize;margin-top:2px;}
@@ -220,6 +223,7 @@
   .modal-hero img{width:150px;height:150px;object-fit:contain;}
   .modal-num{color:var(--text-dim);font-family:'Roboto Mono',monospace;}
   .modal-name{font-size:22px;text-transform:capitalize;}
+  .go-status-note{font-size:12px;color:var(--text-dim);margin-top:4px;}
   .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);}
   .toggle-row label{font-size:14px;color:var(--text-dim);}
   .switch{position:relative;width:44px;height:24px;}
@@ -581,6 +585,82 @@ async function loadSpeciesList(){
   try{ localStorage.setItem('pokedex-species-list', JSON.stringify(speciesList)); }catch(e){}
 }
 
+/* ---------------- POGOAPI.NET — GO-specific accuracy layer ----------------
+   PoGoAPI supplies data only (released status, shiny availability, which
+   regional forms are confirmed in GO). Images always come from the existing
+   PokeAPI-based sprite pipeline below — this just tells us which Pokémon
+   and forms are real, and what to say about their shiny status. */
+const POGOAPI_BASE = 'https://pogoapi.net/api/v1';
+const POGOAPI_CACHE_KEY = 'pogodex-pogoapi-cache-v1';
+const POGOAPI_CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // refresh daily
+let pogoReleased = {};
+let pogoShiny = {};
+let pogoAlolan = {};
+let pogoGalarian = {};
+let pogoShadow = {};
+let pogoApiLoaded = false;
+
+async function loadPoGoApiData(){
+  try{
+    const cached = localStorage.getItem(POGOAPI_CACHE_KEY);
+    if(cached){
+      const parsed = JSON.parse(cached);
+      if(Date.now() - parsed.ts < POGOAPI_CACHE_MAX_AGE){
+        pogoReleased = parsed.released || {};
+        pogoShiny = parsed.shiny || {};
+        pogoAlolan = parsed.alolan || {};
+        pogoGalarian = parsed.galarian || {};
+        pogoShadow = parsed.shadow || {};
+        pogoApiLoaded = true;
+        return;
+      }
+    }
+  }catch(e){}
+  try{
+    const [rel, shiny, alolan, galar, shadow] = await Promise.all([
+      fetch(`${POGOAPI_BASE}/released_pokemon.json`).then(r=>r.json()),
+      fetch(`${POGOAPI_BASE}/shiny_pokemon.json`).then(r=>r.json()),
+      fetch(`${POGOAPI_BASE}/alolan_pokemon.json`).then(r=>r.json()),
+      fetch(`${POGOAPI_BASE}/galarian_pokemon.json`).then(r=>r.json()),
+      fetch(`${POGOAPI_BASE}/shadow_pokemon.json`).then(r=>r.json())
+    ]);
+    pogoReleased = rel || {};
+    pogoShiny = shiny || {};
+    pogoAlolan = alolan || {};
+    pogoGalarian = galar || {};
+    pogoShadow = shadow || {};
+    pogoApiLoaded = true;
+    try{
+      localStorage.setItem(POGOAPI_CACHE_KEY, JSON.stringify({
+        ts: Date.now(), released: pogoReleased, shiny: pogoShiny,
+        alolan: pogoAlolan, galarian: pogoGalarian, shadow: pogoShadow
+      }));
+    }catch(e){}
+  }catch(e){
+    console.error('PoGoAPI load failed — continuing without the GO-accuracy layer', e);
+    pogoApiLoaded = false;
+  }
+}
+
+function isReleasedInGo(id){
+  // If PoGoAPI didn't load, don't penalize the whole dex — treat everything as released.
+  if(!pogoApiLoaded || Object.keys(pogoReleased).length === 0) return true;
+  return !!pogoReleased[id];
+}
+
+function shinyAvailabilityText(id){
+  const info = pogoShiny[id];
+  if(!info) return 'Shiny not yet available in GO';
+  const ways = [];
+  if(info.found_wild) ways.push('Wild');
+  if(info.found_raid) ways.push('Raid');
+  if(info.found_egg) ways.push('Egg');
+  if(info.found_evolution) ways.push('Evolution');
+  if(info.found_research) ways.push('Research');
+  if(info.found_photobomb) ways.push('Photobomb');
+  return ways.length ? `Shiny available: ${ways.join(', ')}` : 'Shiny not yet available in GO';
+}
+
 function migrateLegacyEntry(e){
   // Converts the old {caught,shiny,tradeQty} boolean model into the new
   // quantity-based model: ownedNormal/ownedShiny + tradeNormal/tradeShiny.
@@ -614,7 +694,7 @@ function getFormEntry(id, formName){
 async function loadForms(id){
   if(formCatalog[id]) return formCatalog[id];
   try{
-    const cached = localStorage.getItem('pokedex-forms-v2-'+id);
+    const cached = localStorage.getItem('pokedex-forms-v3-'+id);
     if(cached){ formCatalog[id] = JSON.parse(cached); return formCatalog[id]; }
   }catch(e){}
   try{
@@ -623,6 +703,17 @@ async function loadForms(id){
     const varieties = (species.varieties||[]).filter(v=>!v.is_default);
     const forms = [];
     for(const v of varieties){
+      // Only keep regional variants PoGoAPI actually confirms exist in GO.
+      // PokeAPI's variety list reflects the mainline games broadly (Mega
+      // evolutions, Totem forms, Hisuian/Paldean forms, etc.), many of which
+      // either don't exist in GO the same way or aren't yet confirmed by
+      // PoGoAPI's more limited released-forms lists, so they're excluded
+      // here rather than risk showing something that isn't real GO content.
+      const isAlolan = v.pokemon.name.endsWith('-alola');
+      const isGalarian = v.pokemon.name.endsWith('-galar');
+      if(isAlolan && !pogoAlolan[id]) continue;
+      if(isGalarian && !pogoGalarian[id]) continue;
+      if(!isAlolan && !isGalarian) continue;
       try{
         const pRes = await fetch(v.pokemon.url);
         const p = await pRes.json();
@@ -639,8 +730,20 @@ async function loadForms(id){
         });
       }catch(e){}
     }
+    // Shadow isn't a PokeAPI variety at all (it's GO-exclusive), so add it
+    // synthetically when PoGoAPI confirms this species has a Shadow form.
+    // There's no distinct Shadow artwork source available, so it reuses the
+    // base species art rather than a Shadow-specific sprite.
+    if(pogoShadow[id]){
+      forms.push({
+        name: `${species.name}-shadow`,
+        displayName: 'Shadow',
+        sprite: artUrl(id, false),
+        shinySprite: artUrl(id, true)
+      });
+    }
     formCatalog[id] = forms;
-    try{ localStorage.setItem('pokedex-forms-v2-'+id, JSON.stringify(forms)); }catch(e){}
+    try{ localStorage.setItem('pokedex-forms-v3-'+id, JSON.stringify(forms)); }catch(e){}
     return forms;
   }catch(e){
     formCatalog[id] = [];
@@ -813,8 +916,9 @@ function renderCardsHtml(items){
     const e = dexData[p.id];
     const caught = e && (e.ownedNormal>0 || e.ownedShiny>0);
     const shiny = e && e.ownedShiny>0;
+    const released = isReleasedInGo(p.id);
     return `
-      <div class="dex-card">
+      <div class="dex-card ${released?'':'unreleased'}" ${released?'':'title="Not yet released in Pokémon GO"'}>
         <div class="quick-toggles">
           <button class="qt-btn ${caught?'active':''}" title="Mark caught" onclick="event.stopPropagation(); quickToggleCaught(${p.id})">✓</button>
           <button class="qt-btn shiny ${shiny?'active':''}" title="Mark shiny" onclick="event.stopPropagation(); quickToggleShiny(${p.id})">★</button>
@@ -823,6 +927,7 @@ function renderCardsHtml(items){
           <img src="${artUrl(p.id,shiny)}" loading="lazy" alt="${p.name}" onerror="this.src='${artUrl(p.id,false)}'">
           <div class="dex-num mono">#${String(p.id).padStart(4,'0')}</div>
           <div class="dex-name">${p.name}</div>
+          ${released ? '' : '<div class="unreleased-badge">Not in GO yet</div>'}
         </div>
       </div>
     `;
@@ -908,12 +1013,15 @@ function renderModal(species, forms){
   const e = getEntry(species.id);
   const body = document.getElementById('modalBody');
   const heroShiny = e.ownedShiny > 0;
+  const released = isReleasedInGo(species.id);
   body.innerHTML = `
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div class="modal-hero">
       <img src="${artUrl(species.id, heroShiny)}" onerror="this.src='${artUrl(species.id,false)}'">
       <div class="modal-num mono">#${String(species.id).padStart(4,'0')}</div>
       <div class="modal-name display">${species.name}</div>
+      ${released ? '' : '<div class="go-status-note">Not yet released in Pokémon GO</div>'}
+      <div class="go-status-note">${shinyAvailabilityText(species.id)}</div>
     </div>
     <div class="qty-grid">
       <div class="qty-block">
@@ -1362,7 +1470,7 @@ async function bootApp(){
   document.getElementById('app').innerHTML = '<div class="panel" style="text-align:center;padding:60px;"><div class="spinner"></div><div class="bezel-sub">Loading your Pokédex...</div></div>';
   bootError = null;
   try{
-    await loadSpeciesList();
+    await Promise.all([loadSpeciesList(), loadPoGoApiData()]);
     await loadDexData();
     render();
     if(!trainerCode) showTrainerCodePrompt();
