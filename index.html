@@ -228,8 +228,22 @@
   input:checked + .slider{background:var(--accent);}
   input:checked + .slider::before{transform:translateX(20px);}
   .qty-input{width:70px;text-align:center;}
+  .qty-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    padding:14px 0;
+    border-top:1px solid var(--line);
+  }
+  .qty-block{display:flex;flex-direction:column;gap:6px;}
+  .qty-block label{font-size:12px;color:var(--text-dim);}
+  .qty-block .qty-input{width:100%;text-align:left;}
+  .form-qty-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-left:auto;}
+  .mini-qty{display:flex;flex-direction:column;gap:2px;align-items:center;}
+  .mini-qty span{font-size:10px;color:var(--text-dim);}
+  .qty-input-mini{width:44px;text-align:center;padding:4px;font-size:12px;}
   .forms-section{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;}
-  .form-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+  .form-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
   .form-item img{width:48px;height:48px;object-fit:contain;}
   .form-item .fname{flex:1;font-size:13px;text-transform:capitalize;}
   .mini-toggle{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-dim);}
@@ -376,7 +390,7 @@ let bootError = null;
 let modalId = null;
 let modalLoadingForms = false;
 let tradeWanted = [];
-let tradeOffering = [];
+let tradeOfferingQty = {};
 let tradeSearch = '';
 let offeringFilter = '';
 let tradeCardHtml = '';
@@ -514,6 +528,19 @@ async function loadDexData(){
     console.error('Drive load failed', e);
     dexData = {};
   }
+  migrateAllDexData();
+}
+
+function migrateAllDexData(){
+  Object.keys(dexData).forEach(idStr=>{
+    const e = dexData[idStr];
+    if(e.ownedNormal === undefined) migrateLegacyEntry(e);
+    if(!e.forms) e.forms = {};
+    Object.keys(e.forms).forEach(fname=>{
+      const fe = e.forms[fname];
+      if(fe.ownedNormal === undefined) migrateLegacyEntry(fe);
+    });
+  });
 }
 
 function saveDexData(){
@@ -553,14 +580,34 @@ async function loadSpeciesList(){
   try{ localStorage.setItem('pokedex-species-list', JSON.stringify(speciesList)); }catch(e){}
 }
 
+function migrateLegacyEntry(e){
+  // Converts the old {caught,shiny,tradeQty} boolean model into the new
+  // quantity-based model: ownedNormal/ownedShiny + tradeNormal/tradeShiny.
+  const wasCaught = !!e.caught;
+  const wasShiny = !!e.shiny;
+  const oldQty = e.tradeQty || 0;
+  e.ownedNormal = (wasCaught && !wasShiny) ? 1 : 0;
+  e.ownedShiny = (wasCaught && wasShiny) ? 1 : 0;
+  e.tradeNormal = (wasCaught && !wasShiny) ? Math.min(oldQty, e.ownedNormal) : 0;
+  e.tradeShiny = (wasCaught && wasShiny) ? Math.min(oldQty, e.ownedShiny) : 0;
+  delete e.caught;
+  delete e.shiny;
+  delete e.tradeQty;
+}
+
 function getEntry(id){
-  if(!dexData[id]) dexData[id] = {caught:false, shiny:false, tradeQty:0, forms:{}};
-  return dexData[id];
+  if(!dexData[id]) dexData[id] = {ownedNormal:0, ownedShiny:0, tradeNormal:0, tradeShiny:0, forms:{}};
+  const e = dexData[id];
+  if(e.ownedNormal === undefined) migrateLegacyEntry(e);
+  if(!e.forms) e.forms = {};
+  return e;
 }
 function getFormEntry(id, formName){
   const e = getEntry(id);
-  if(!e.forms[formName]) e.forms[formName] = {caught:false, shiny:false, tradeQty:0};
-  return e.forms[formName];
+  if(!e.forms[formName]) e.forms[formName] = {ownedNormal:0, ownedShiny:0, tradeNormal:0, tradeShiny:0};
+  const fe = e.forms[formName];
+  if(fe.ownedNormal === undefined) migrateLegacyEntry(fe);
+  return fe;
 }
 
 async function loadForms(id){
@@ -601,7 +648,7 @@ async function loadForms(id){
 }
 
 function statCaughtCount(){
-  return Object.values(dexData).filter(e=>e.caught).length;
+  return Object.values(dexData).filter(e=>(e.ownedNormal>0 || e.ownedShiny>0)).length;
 }
 
 /* ---------------- RENDER ---------------- */
@@ -763,8 +810,8 @@ function renderCardsHtml(items){
   if(!items.length) return '<div class="empty-note">No Pokémon match that search.</div>';
   return `<div class="dex-cards-grid">${items.map(p=>{
     const e = dexData[p.id];
-    const caught = e && e.caught;
-    const shiny = e && e.shiny;
+    const caught = e && (e.ownedNormal>0 || e.ownedShiny>0);
+    const shiny = e && e.ownedShiny>0;
     return `
       <div class="dex-card">
         <div class="quick-toggles">
@@ -794,7 +841,10 @@ function renderDexSections(filtered){
     const items = filtered.filter(p=>p.id>=r.min && p.id<=r.max);
     if(!items.length) return;
     const collapsed = isRegionCollapsed(r.key);
-    const caughtCount = items.filter(p=>dexData[p.id] && dexData[p.id].caught).length;
+    const caughtCount = items.filter(p=>{
+      const e = dexData[p.id];
+      return e && (e.ownedNormal>0 || e.ownedShiny>0);
+    }).length;
     html += `
       <div class="region-section">
         <button class="region-toggle" onclick="toggleRegion('${r.key}')">
@@ -817,17 +867,27 @@ function refreshDexGridIfVisible(){
 }
 
 function quickToggleCaught(id){
+  // Quick shortcut on the grid card: toggles a single normal-owned copy on/off.
+  // For managing exact quantities beyond 1, use the detail modal.
   const e = getEntry(id);
-  e.caught = !e.caught;
-  if(!e.caught){ e.shiny = false; e.tradeQty = 0; }
+  if(e.ownedNormal > 0){
+    e.ownedNormal = 0;
+    e.tradeNormal = 0;
+  } else {
+    e.ownedNormal = 1;
+  }
   saveDexData();
   refreshDexGridIfVisible();
 }
 
 function quickToggleShiny(id){
   const e = getEntry(id);
-  e.shiny = !e.shiny;
-  if(e.shiny) e.caught = true;
+  if(e.ownedShiny > 0){
+    e.ownedShiny = 0;
+    e.tradeShiny = 0;
+  } else {
+    e.ownedShiny = 1;
+  }
   saveDexData();
   refreshDexGridIfVisible();
 }
@@ -846,24 +906,31 @@ async function openDetail(id){
 function renderModal(species, forms){
   const e = getEntry(species.id);
   const body = document.getElementById('modalBody');
+  const heroShiny = e.ownedShiny > 0;
   body.innerHTML = `
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div class="modal-hero">
-      <img src="${artUrl(species.id, e.shiny)}" onerror="this.src='${artUrl(species.id,false)}'">
+      <img src="${artUrl(species.id, heroShiny)}" onerror="this.src='${artUrl(species.id,false)}'">
       <div class="modal-num mono">#${String(species.id).padStart(4,'0')}</div>
       <div class="modal-name display">${species.name}</div>
     </div>
-    <div class="toggle-row">
-      <label>Caught</label>
-      <label class="switch"><input type="checkbox" ${e.caught?'checked':''} onchange="toggleCaught(${species.id})"><span class="slider"></span></label>
-    </div>
-    <div class="toggle-row">
-      <label>Shiny</label>
-      <label class="switch"><input type="checkbox" ${e.shiny?'checked':''} ${e.caught?'':'disabled'} onchange="toggleShiny(${species.id})"><span class="slider"></span></label>
-    </div>
-    <div class="toggle-row">
-      <label>Duplicates for trade</label>
-      <input type="number" min="0" class="qty-input" value="${e.tradeQty||0}" ${e.caught?'':'disabled'} onchange="setQty(${species.id}, this.value)">
+    <div class="qty-grid">
+      <div class="qty-block">
+        <label>Owned (Normal)</label>
+        <input type="number" min="0" class="qty-input" value="${e.ownedNormal}" onchange="setOwned(${species.id}, 'normal', this.value)">
+      </div>
+      <div class="qty-block">
+        <label>Owned (Shiny)</label>
+        <input type="number" min="0" class="qty-input" value="${e.ownedShiny}" onchange="setOwned(${species.id}, 'shiny', this.value)">
+      </div>
+      <div class="qty-block">
+        <label>Trade Available (Normal)</label>
+        <input type="number" min="0" max="${e.ownedNormal}" class="qty-input" value="${e.tradeNormal}" ${e.ownedNormal?'':'disabled'} onchange="setTradeAvail(${species.id}, 'normal', this.value)">
+      </div>
+      <div class="qty-block">
+        <label>Trade Available (Shiny)</label>
+        <input type="number" min="0" max="${e.ownedShiny}" class="qty-input" value="${e.tradeShiny}" ${e.ownedShiny?'':'disabled'} onchange="setTradeAvail(${species.id}, 'shiny', this.value)">
+      </div>
     </div>
     <div class="forms-section">
       <h3 style="margin:0 0 8px;font-size:16px;">Regional / Alternate Forms</h3>
@@ -876,17 +943,16 @@ function renderFormsList(id, forms){
   if(!forms.length) return '<div class="empty-note" style="padding:8px 0;">No alternate forms found for this species.</div>';
   return forms.map(f=>{
     const fe = getFormEntry(id, f.name);
+    const formShiny = fe.ownedShiny > 0;
     return `
       <div class="form-item">
-        <img src="${fe.shiny ? f.shinySprite : f.sprite}" alt="${f.displayName}">
+        <img src="${formShiny ? f.shinySprite : f.sprite}" alt="${f.displayName}">
         <div class="fname">${f.displayName}</div>
-        <div class="mini-toggle">
-          <label class="switch" style="width:34px;height:18px;"><input type="checkbox" ${fe.caught?'checked':''} onchange="toggleFormCaught(${id}, '${f.name}')"><span class="slider"></span></label>
-          caught
-        </div>
-        <div class="mini-toggle">
-          <label class="switch" style="width:34px;height:18px;"><input type="checkbox" ${fe.shiny?'checked':''} ${fe.caught?'':'disabled'} onchange="toggleFormShiny(${id}, '${f.name}')"><span class="slider"></span></label>
-          shiny
+        <div class="form-qty-grid">
+          <div class="mini-qty"><span>Normal</span><input type="number" min="0" class="qty-input-mini" value="${fe.ownedNormal}" onchange="setFormOwned(${id}, '${f.name}', 'normal', this.value)"></div>
+          <div class="mini-qty"><span>Shiny</span><input type="number" min="0" class="qty-input-mini" value="${fe.ownedShiny}" onchange="setFormOwned(${id}, '${f.name}', 'shiny', this.value)"></div>
+          <div class="mini-qty"><span>Trade N</span><input type="number" min="0" max="${fe.ownedNormal}" class="qty-input-mini" value="${fe.tradeNormal}" ${fe.ownedNormal?'':'disabled'} onchange="setFormTradeAvail(${id}, '${f.name}', 'normal', this.value)"></div>
+          <div class="mini-qty"><span>Trade S</span><input type="number" min="0" max="${fe.ownedShiny}" class="qty-input-mini" value="${fe.tradeShiny}" ${fe.ownedShiny?'':'disabled'} onchange="setFormTradeAvail(${id}, '${f.name}', 'shiny', this.value)"></div>
         </div>
       </div>
     `;
@@ -898,59 +964,87 @@ function closeModal(){
   modalId = null;
 }
 
-function toggleCaught(id){
+function setOwned(id, variant, val){
   const e = getEntry(id);
-  e.caught = !e.caught;
-  if(!e.caught){ e.shiny=false; e.tradeQty=0; }
+  const qty = Math.max(0, parseInt(val)||0);
+  if(variant === 'shiny'){
+    e.ownedShiny = qty;
+    if(e.tradeShiny > qty) e.tradeShiny = qty;
+  } else {
+    e.ownedNormal = qty;
+    if(e.tradeNormal > qty) e.tradeNormal = qty;
+  }
   saveDexData();
   const species = speciesList.find(p=>p.id===id);
   renderModal(species, formCatalog[id]);
   render();
 }
-function toggleShiny(id){
+
+function setTradeAvail(id, variant, val){
   const e = getEntry(id);
-  e.shiny = !e.shiny;
-  saveDexData();
-  const species = speciesList.find(p=>p.id===id);
-  renderModal(species, formCatalog[id]);
-}
-function setQty(id, val){
-  const e = getEntry(id);
-  e.tradeQty = Math.max(0, parseInt(val)||0);
-  saveDexData();
-}
-function toggleFormCaught(id, formName){
-  const fe = getFormEntry(id, formName);
-  fe.caught = !fe.caught;
-  if(!fe.caught) fe.shiny = false;
-  saveDexData();
-  const species = speciesList.find(p=>p.id===id);
-  renderModal(species, formCatalog[id]);
-}
-function toggleFormShiny(id, formName){
-  const fe = getFormEntry(id, formName);
-  fe.shiny = !fe.shiny;
+  const owned = variant === 'shiny' ? e.ownedShiny : e.ownedNormal;
+  const qty = Math.max(0, Math.min(owned, parseInt(val)||0));
+  if(variant === 'shiny') e.tradeShiny = qty; else e.tradeNormal = qty;
   saveDexData();
   const species = speciesList.find(p=>p.id===id);
   renderModal(species, formCatalog[id]);
 }
 
-function renderInventory(el){
+function setFormOwned(id, formName, variant, val){
+  const fe = getFormEntry(id, formName);
+  const qty = Math.max(0, parseInt(val)||0);
+  if(variant === 'shiny'){
+    fe.ownedShiny = qty;
+    if(fe.tradeShiny > qty) fe.tradeShiny = qty;
+  } else {
+    fe.ownedNormal = qty;
+    if(fe.tradeNormal > qty) fe.tradeNormal = qty;
+  }
+  saveDexData();
+  const species = speciesList.find(p=>p.id===id);
+  renderModal(species, formCatalog[id]);
+}
+
+function setFormTradeAvail(id, formName, variant, val){
+  const fe = getFormEntry(id, formName);
+  const owned = variant === 'shiny' ? fe.ownedShiny : fe.ownedNormal;
+  const qty = Math.max(0, Math.min(owned, parseInt(val)||0));
+  if(variant === 'shiny') fe.tradeShiny = qty; else fe.tradeNormal = qty;
+  saveDexData();
+  const species = speciesList.find(p=>p.id===id);
+  renderModal(species, formCatalog[id]);
+}
+
+function buildOwnedRows(){
   const rows = [];
   Object.keys(dexData).forEach(idStr=>{
     const id = parseInt(idStr);
-    const e = dexData[id];
+    const e = getEntry(id);
     const species = speciesList.find(p=>p.id===id);
     if(!species) return;
-    if(e.caught) rows.push({id, name:species.name, shiny:e.shiny, tradeQty:e.tradeQty, form:null});
+    if(e.ownedNormal > 0) rows.push({id, form:null, variant:'normal', name:species.name, count:e.ownedNormal, tradeAvail:e.tradeNormal});
+    if(e.ownedShiny > 0) rows.push({id, form:null, variant:'shiny', name:species.name, count:e.ownedShiny, tradeAvail:e.tradeShiny});
     Object.keys(e.forms||{}).forEach(fname=>{
-      const fe = e.forms[fname];
-      if(fe.caught){
-        const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
-        rows.push({id, name: cat ? cat.displayName + ' ' + species.name : fname, shiny: fe.shiny, tradeQty: fe.tradeQty, form:fname});
-      }
+      const fe = getFormEntry(id, fname);
+      const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
+      const label = cat ? `${cat.displayName} ${species.name}` : fname;
+      if(fe.ownedNormal > 0) rows.push({id, form:fname, variant:'normal', name:label, count:fe.ownedNormal, tradeAvail:fe.tradeNormal});
+      if(fe.ownedShiny > 0) rows.push({id, form:fname, variant:'shiny', name:label, count:fe.ownedShiny, tradeAvail:fe.tradeShiny});
     });
   });
+  return rows;
+}
+
+function rowSprite(r){
+  if(r.form){
+    const cat = (formCatalog[r.id]||[]).find(f=>f.name===r.form);
+    return cat ? (r.variant==='shiny' ? cat.shinySprite : cat.sprite) : null;
+  }
+  return artUrl(r.id, r.variant==='shiny');
+}
+
+function renderInventory(el){
+  const rows = buildOwnedRows();
   const filtered = invFilter ? rows.filter(r=>r.name.toLowerCase().includes(invFilter.toLowerCase())) : rows;
 
   el.innerHTML = `
@@ -961,11 +1055,12 @@ function renderInventory(el){
       </div>
       ${filtered.length ? `<div class="inv-list">${filtered.map(r=>`
         <div class="inv-row">
-          ${r.form ? '' : `<img src="${artUrl(r.id, r.shiny)}" onerror="this.src='${artUrl(r.id,false)}'">`}
+          ${r.form ? '' : `<img src="${rowSprite(r)}" onerror="this.src='${artUrl(r.id,false)}'">`}
           <div class="name">${r.name}</div>
-          ${r.shiny ? '<div class="tag">★ shiny</div>' : ''}
-          ${r.tradeQty>0 ? `<div class="tag">×${r.tradeQty} for trade</div>` : ''}
-          <button class="x-btn" title="Remove from inventory" onclick="${r.form ? `removeFormFromInventory(${r.id}, '${r.form}')` : `removeFromInventory(${r.id})`}">🗑</button>
+          ${r.variant==='shiny' ? '<div class="tag">★ shiny</div>' : ''}
+          <div class="tag">×${r.count} owned</div>
+          ${r.tradeAvail>0 ? `<div class="tag">×${r.tradeAvail} for trade</div>` : ''}
+          <button class="x-btn" title="Remove from inventory" onclick="${r.form ? `removeFormFromInventory(${r.id}, '${r.form}', '${r.variant}')` : `removeFromInventory(${r.id}, '${r.variant}')`}">🗑</button>
         </div>
       `).join('')}</div>` : '<div class="empty-note">Nothing caught yet. Head to the Pokédex tab to start tracking.</div>'}
     </div>
@@ -973,20 +1068,18 @@ function renderInventory(el){
   document.getElementById('invSearchInput').oninput = (ev)=>{ invFilter = ev.target.value; renderTabContent(); };
 }
 
-function removeFromInventory(id){
+function removeFromInventory(id, variant){
   const e = getEntry(id);
-  e.caught = false;
-  e.shiny = false;
-  e.tradeQty = 0;
+  if(variant === 'shiny'){ e.ownedShiny = 0; e.tradeShiny = 0; }
+  else { e.ownedNormal = 0; e.tradeNormal = 0; }
   saveDexData();
   renderTabContent();
 }
 
-function removeFormFromInventory(id, formName){
+function removeFormFromInventory(id, formName, variant){
   const fe = getFormEntry(id, formName);
-  fe.caught = false;
-  fe.shiny = false;
-  fe.tradeQty = 0;
+  if(variant === 'shiny'){ fe.ownedShiny = 0; fe.tradeShiny = 0; }
+  else { fe.ownedNormal = 0; fe.tradeNormal = 0; }
   saveDexData();
   renderTabContent();
 }
@@ -994,37 +1087,17 @@ function removeFormFromInventory(id, formName){
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 function buildInventoryExportRows(){
-  const rows = [];
-  Object.keys(dexData).forEach(idStr=>{
-    const id = parseInt(idStr);
-    const e = dexData[id];
-    const species = speciesList.find(p=>p.id===id);
-    if(!species) return;
-    if(e.caught){
-      rows.push([
-        `=IMAGE("${artUrl(id, e.shiny)}")`,
-        id,
-        species.name,
-        e.shiny ? 'Yes' : 'No',
-        e.tradeQty || 0
-      ]);
-    }
-    Object.keys(e.forms||{}).forEach(fname=>{
-      const fe = e.forms[fname];
-      if(fe.caught){
-        const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
-        const sprite = cat ? (fe.shiny ? cat.shinySprite : cat.sprite) : artUrl(id, fe.shiny);
-        rows.push([
-          `=IMAGE("${sprite}")`,
-          id,
-          cat ? `${cat.displayName} ${species.name}` : fname,
-          fe.shiny ? 'Yes' : 'No',
-          fe.tradeQty || 0
-        ]);
-      }
-    });
+  return buildOwnedRows().map(r=>{
+    const sprite = rowSprite(r) || artUrl(r.id, r.variant==='shiny');
+    return [
+      `=IMAGE("${sprite}")`,
+      r.id,
+      r.name,
+      r.variant==='shiny' ? 'Yes' : 'No',
+      r.count,
+      r.tradeAvail
+    ];
   });
-  return rows;
 }
 
 async function exportInventoryToSheets(){
@@ -1048,7 +1121,7 @@ async function exportInventoryToSheets(){
     const created = await createRes.json();
     const spreadsheetId = created.spreadsheetId;
 
-    const header = ['Image', 'Dex #', 'Name', 'Shiny', 'Trade Qty'];
+    const header = ['Image', 'Dex #', 'Name', 'Shiny', 'Owned Qty', 'Trade Available Qty'];
     const values = [header, ...rows];
     const range = encodeURIComponent('Sheet1!A1');
     const writeRes = await fetch(`${SHEETS_API}/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`, {
@@ -1128,38 +1201,35 @@ function renderTrade(el){
   };
 
   if(tradeCardHtml){
-    document.getElementById('tradeCardWrap').innerHTML = tradeCardHtml + `<button class="primary-btn" onclick="downloadTradeCard()">Download Image</button>`;
+    document.getElementById('tradeCardWrap').innerHTML = tradeCardHtml + `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="primary-btn" onclick="downloadTradeCard()">Download Image</button>
+        <button class="primary-btn" style="background:var(--red);color:white;" onclick="confirmTradeCompleted()">Confirm Trade Completed</button>
+      </div>
+    `;
   }
 }
 
 function updateOfferingList(){
   const listEl = document.getElementById('offeringList');
   if(!listEl) return;
-  const ownedRows = [];
-  Object.keys(dexData).forEach(idStr=>{
-    const id = parseInt(idStr);
-    const e = dexData[id];
-    const species = speciesList.find(p=>p.id===id);
-    if(!species) return;
-    if(e.caught) ownedRows.push({id, key:`${id}`, name:species.name, shiny:e.shiny, tradeQty:e.tradeQty, form:null});
-    Object.keys(e.forms||{}).forEach(fname=>{
-      const fe = e.forms[fname];
-      if(fe.caught){
-        const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
-        ownedRows.push({id, key:`${id}-${fname}`, name: cat ? cat.displayName+' '+species.name : fname, shiny: fe.shiny, tradeQty: fe.tradeQty, form:fname});
-      }
-    });
-  });
-  const filtered = offeringFilter ? ownedRows.filter(r=>r.name.toLowerCase().includes(offeringFilter.toLowerCase())) : ownedRows;
+  const rows = buildOwnedRows().filter(r=>r.tradeAvail > 0);
+  const filtered = offeringFilter ? rows.filter(r=>r.name.toLowerCase().includes(offeringFilter.toLowerCase())) : rows;
   listEl.innerHTML = filtered.length ? filtered.map(r=>{
-    const checked = tradeOffering.includes(r.key);
+    const key = `${r.id}:${r.form||''}:${r.variant}`;
+    const qty = tradeOfferingQty[key] || 0;
     return `
     <div class="trade-item">
-      <img src="${r.form ? ((formCatalog[r.id]||[]).find(f=>f.name===r.form)||{})[r.shiny?'shinySprite':'sprite'] : artUrl(r.id, r.shiny)}" onerror="this.src='${artUrl(r.id,false)}'">
-      <span>${r.name}${r.tradeQty>0?` (×${r.tradeQty})`:''}</span>
-      <label class="mini-toggle"><input type="checkbox" ${checked?'checked':''} onchange="toggleOffering('${r.key}')"> offer</label>
+      <img src="${rowSprite(r) || artUrl(r.id,false)}" onerror="this.src='${artUrl(r.id,false)}'">
+      <span>${r.name}${r.variant==='shiny'?' ★':''} <span class="bezel-sub" style="margin:0;">(${r.tradeAvail} available)</span></span>
+      <input type="number" class="qty-input-mini" min="0" max="${r.tradeAvail}" value="${qty}" onchange="setOfferingQty('${key}', this.value, ${r.tradeAvail})">
     </div>
-  `;}).join('') : `<div class="empty-note">${ownedRows.length ? 'No matches in your inventory.' : 'Mark Pokémon as caught in the Pokédex tab to offer them.'}</div>`;
+  `;}).join('') : `<div class="empty-note">${buildOwnedRows().length ? 'Nothing marked as available to trade yet. Set a "Trade Available" quantity from the Pokédex tab.' : 'Mark Pokémon as caught in the Pokédex tab to offer them.'}</div>`;
+}
+
+function setOfferingQty(key, val, max){
+  const qty = Math.max(0, Math.min(max, parseInt(val)||0));
+  if(qty > 0) tradeOfferingQty[key] = qty; else delete tradeOfferingQty[key];
 }
 
 function updateTradeSearchResults(){
@@ -1187,33 +1257,27 @@ function addWanted(id){
 }
 function removeWanted(i){ tradeWanted.splice(i,1); renderTabContent(); }
 function toggleWantedShiny(i){ tradeWanted[i].shiny = !tradeWanted[i].shiny; renderTabContent(); }
-function toggleOffering(key){
-  const idx = tradeOffering.indexOf(key);
-  if(idx>-1) tradeOffering.splice(idx,1); else tradeOffering.push(key);
-  renderTabContent();
-}
 
 function generateTradeCard(){
   const offeringData = [];
-  tradeOffering.forEach(key=>{
-    const [idStr, ...formParts] = key.split('-');
+  Object.keys(tradeOfferingQty).forEach(key=>{
+    const qty = tradeOfferingQty[key];
+    if(!qty) return;
+    const [idStr, formName, variant] = key.split(':');
     const id = parseInt(idStr);
-    const formName = formParts.join('-') || null;
     const species = speciesList.find(p=>p.id===id);
     if(!species) return;
+    const shiny = variant === 'shiny';
+    let name, sprite;
     if(formName){
-      const e = dexData[id];
-      const fe = e && e.forms ? e.forms[formName] : null;
       const cat = (formCatalog[id]||[]).find(f=>f.name===formName);
-      offeringData.push({
-        name: cat ? cat.displayName+' '+species.name : formName,
-        shiny: fe ? fe.shiny : false,
-        sprite: cat ? (fe && fe.shiny ? cat.shinySprite : cat.sprite) : artUrl(id,false)
-      });
+      name = cat ? `${cat.displayName} ${species.name}` : formName;
+      sprite = cat ? (shiny ? cat.shinySprite : cat.sprite) : artUrl(id, shiny);
     } else {
-      const e = dexData[id];
-      offeringData.push({ name: species.name, shiny: e ? e.shiny : false, sprite: artUrl(id, e ? e.shiny : false) });
+      name = species.name;
+      sprite = artUrl(id, shiny);
     }
+    offeringData.push({ name: qty>1 ? `${name} ×${qty}` : name, shiny, sprite, key, qty });
   });
 
   const wantedBoxes = tradeWanted.map(w=>`
@@ -1252,6 +1316,32 @@ function generateTradeCard(){
     </div>
   `;
   renderTabContent();
+}
+
+function confirmTradeCompleted(){
+  const keys = Object.keys(tradeOfferingQty).filter(k=>tradeOfferingQty[k]>0);
+  if(!keys.length){
+    alert('Nothing has a quantity selected to confirm.');
+    return;
+  }
+  keys.forEach(key=>{
+    const qty = tradeOfferingQty[key];
+    const [idStr, formName, variant] = key.split(':');
+    const id = parseInt(idStr);
+    const target = formName ? getFormEntry(id, formName) : getEntry(id);
+    if(variant === 'shiny'){
+      target.ownedShiny = Math.max(0, target.ownedShiny - qty);
+      target.tradeShiny = Math.max(0, Math.min(target.tradeShiny, target.ownedShiny));
+    } else {
+      target.ownedNormal = Math.max(0, target.ownedNormal - qty);
+      target.tradeNormal = Math.max(0, Math.min(target.tradeNormal, target.ownedNormal));
+    }
+  });
+  tradeOfferingQty = {};
+  tradeCardHtml = '';
+  saveDexData();
+  renderTabContent();
+  alert('Trade recorded — your inventory has been updated.');
 }
 
 function downloadTradeCard(){

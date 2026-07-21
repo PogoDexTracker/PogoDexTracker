@@ -1,7 +1,7 @@
-# POGO Dex Tracker — v0.5.1 Beta
+# POGO Dex Tracker — v1.0 Beta
 
 Initial release: July 20, 2026
-Last updated: July 20, 2026 (v0.5.1 — see changelog below)
+Last updated: July 20, 2026 (v1.0 — see changelog below)
 
 ## What's in this build
 
@@ -46,6 +46,17 @@ Last updated: July 20, 2026 (v0.5.1 — see changelog below)
 - Possible CP/IV or move tracking, if wanted
 
 ## Changelog
+
+### v1.0 Beta — Inventory quantity rework
+This is a genuine architecture change: caught/shiny went from a single boolean per species to real quantity counters, split independently for normal and shiny. Your existing data migrates automatically on first load after updating, nothing is lost.
+
+- **New data model per species (and per form)**: Owned (Normal), Owned (Shiny), Trade Available (Normal), Trade Available (Shiny) — all independent counts instead of one caught/shiny flag plus a single "extra" number.
+- **Pokédex detail modal**: replaced the Caught/Shiny toggle switches with four quantity fields (Owned Normal/Shiny, Trade Available Normal/Shiny). Trade Available is automatically capped at whatever you own.
+- **Quick-toggle buttons on dex cards**: kept as a fast single-copy shortcut (toggle 0/1), independent for normal and shiny now — marking shiny no longer requires or implies marking normal caught. Full quantity management lives in the modal.
+- **Inventory tab**: shows owned count and trade-available count per entry; delete button now removes just that specific normal/shiny stack rather than the whole species.
+- **Trade Builder Offering list**: now shows only entries with a Trade Available quantity set, and lets you pick exactly how many of that pool to include in a specific trade (previously all-or-nothing).
+- **New "Confirm Trade Completed" button**: appears next to Download Image after generating a card. Only this action actually decrements Owned and Trade Available counts, by the quantities you included. Generating or downloading a card never touches your inventory on its own — nothing changes until you explicitly confirm a trade went through.
+- Google Sheets export updated with separate Owned Qty and Trade Available Qty columns.
 
 ### v0.5.1 Beta
 - Reverted the Base/Shiny/Alternate section split from v0.5 back to a single flat inventory list, per feedback. Delete (🗑) buttons per row are kept. Forms still show as text (no image) since that data source limitation hasn't changed.
