@@ -393,6 +393,19 @@
   .rc-shiny-note{font-size:12px;color:#9C2E7D;font-weight:700;margin-top:4px;}
 
   .app-footer{margin:28px 0 6px;text-align:center;font-size:11px;line-height:1.6;color:var(--text-dim);opacity:0.75;padding:0 10px;}
+
+  .event-list{display:flex;flex-direction:column;gap:10px;}
+  .event-card{
+    display:flex;gap:12px;align-items:center;
+    background:var(--bg-deep);border:1px solid var(--line);border-radius:12px;
+    padding:10px;text-decoration:none;color:var(--text);transition:.15s;
+  }
+  .event-card:hover{border-color:var(--accent);}
+  .event-card img{width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0;background:var(--bg-panel-2);}
+  .event-card-body{flex:1;min-width:0;}
+  .event-badge{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);font-weight:700;}
+  .event-name{font-size:14px;font-weight:700;margin-top:2px;}
+  .event-dates{font-size:11px;color:var(--text-dim);margin-top:2px;}
 </style>
 </head>
 <body>
@@ -413,7 +426,7 @@ const NATIONAL_DEX_MAX = 1025;
 let speciesList = [];
 let dexData = {};
 let formCatalog = {};
-let currentTab = 'dex';
+let currentTab = 'events';
 let dexSearch = '';
 let dexRegion = 'all';
 let collapsedRegions = {};
@@ -776,6 +789,120 @@ function raidBossKey(b){
   return `${b.tierKey}:${b.id}:${b.form||''}`;
 }
 
+/* ---------------- EVENTS — ScrapedDuck (LeekDuck.com) ----------------
+   ScrapedDuck scrapes LeekDuck.com with their permission and publishes a
+   clean JSON feed. Their only conditions: don't paywall or ad-monetize
+   an app that consumes it, and credit ScrapedDuck + LeekDuck.com (done
+   in the footer). Cached for an hour — ScrapedDuck asks consumers to
+   wait at least 5 minutes between fetches, so an hour is comfortably polite. */
+const EVENTS_API = 'https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.min.json';
+const EVENTS_CACHE_KEY = 'pogodex-events-cache-v1';
+const EVENTS_CACHE_MAX_AGE = 60 * 60 * 1000; // refresh every hour
+let eventsData = [];
+let eventsLoaded = false;
+let eventsError = false;
+
+async function loadEventsData(){
+  try{
+    const cached = localStorage.getItem(EVENTS_CACHE_KEY);
+    if(cached){
+      const parsed = JSON.parse(cached);
+      if(Date.now() - parsed.ts < EVENTS_CACHE_MAX_AGE){
+        eventsData = parsed.data || [];
+        eventsLoaded = true;
+        return;
+      }
+    }
+  }catch(e){}
+  try{
+    const res = await fetch(EVENTS_API);
+    if(!res.ok) throw new Error('events fetch failed');
+    const json = await res.json();
+    eventsData = Array.isArray(json) ? json : [];
+    eventsLoaded = true;
+    eventsError = false;
+    try{ localStorage.setItem(EVENTS_CACHE_KEY, JSON.stringify({ts:Date.now(), data:eventsData})); }catch(e){}
+  }catch(e){
+    // Non-fatal, same pattern as raid bosses and the PoGoAPI layer —
+    // only the Events tab is affected, not the rest of the app.
+    console.error('Events load failed — continuing without it', e);
+    eventsError = true;
+  }
+}
+
+async function retryEvents(){
+  eventsError = false;
+  await loadEventsData();
+  if(currentTab === 'events') renderTabContent();
+}
+
+// ISO strings ending in "Z" are true UTC and convert to the viewer's local
+// time automatically. ScrapedDuck's local-time events omit the "Z", and
+// per the ISO 8601 spec, JS's Date parser already treats an offset-less
+// string as local time — so no manual timezone handling is needed here.
+function categorizedEvents(){
+  const now = Date.now();
+  const current = [];
+  const upcoming = [];
+  eventsData.forEach(e=>{
+    const start = e.start ? new Date(e.start).getTime() : null;
+    const end = e.end ? new Date(e.end).getTime() : null;
+    if(end !== null && !isNaN(end) && end < now) return; // already ended
+    if(start !== null && !isNaN(start) && start > now){ upcoming.push(e); return; }
+    current.push(e);
+  });
+  current.sort((a,b)=>{
+    const ae = (a.end && !isNaN(new Date(a.end).getTime())) ? new Date(a.end).getTime() : Infinity;
+    const be = (b.end && !isNaN(new Date(b.end).getTime())) ? new Date(b.end).getTime() : Infinity;
+    return ae - be;
+  });
+  upcoming.sort((a,b)=> new Date(a.start).getTime() - new Date(b.start).getTime());
+  return {current, upcoming};
+}
+
+function formatEventDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+}
+
+function renderEventCardHtml(e){
+  const startLabel = formatEventDate(e.start);
+  const endLabel = formatEventDate(e.end);
+  let rangeLabel = '';
+  if(startLabel && endLabel) rangeLabel = `${startLabel} – ${endLabel}`;
+  else if(startLabel) rangeLabel = `Starts ${startLabel}`;
+  else if(endLabel) rangeLabel = `Ends ${endLabel}`;
+  return `
+    <a class="event-card" href="${e.link || '#'}" target="_blank" rel="noopener">
+      ${e.image ? `<img src="${e.image}" loading="lazy" alt="">` : ''}
+      <div class="event-card-body">
+        <div class="event-badge">${e.heading || e.eventType || 'Event'}</div>
+        <div class="event-name">${e.name || ''}</div>
+        ${rangeLabel ? `<div class="event-dates mono">${rangeLabel}</div>` : ''}
+      </div>
+    </a>
+  `;
+}
+
+function renderEvents(el){
+  if(eventsError){
+    el.innerHTML = `<div class="panel"><div class="banner">Could not load events. Check your connection.<button class="retry-btn" onclick="retryEvents()">Retry</button></div></div>`;
+    return;
+  }
+  const {current, upcoming} = categorizedEvents();
+  el.innerHTML = `
+    <div class="panel">
+      <h3 class="display" style="margin-top:0;">Current Events</h3>
+      <div class="bezel-sub" style="margin-bottom:14px;">Event data via ScrapedDuck, sourced from LeekDuck.com.</div>
+      ${current.length ? `<div class="event-list">${current.map(renderEventCardHtml).join('')}</div>` : '<div class="empty-note">No events currently running.</div>'}
+      <h3 class="display" style="margin:22px 0 4px;">Upcoming Events</h3>
+      ${upcoming.length ? `<div class="event-list">${upcoming.slice(0,30).map(renderEventCardHtml).join('')}</div>` : '<div class="empty-note">No upcoming events listed yet.</div>'}
+    </div>
+  `;
+}
+
 function isReleasedInGo(id){
   // If PoGoAPI didn't load, don't penalize the whole dex — treat everything as released.
   if(!pogoApiLoaded || Object.keys(pogoReleased).length === 0) return true;
@@ -935,13 +1062,14 @@ function render(){
       </div>
     </div>
     <div class="tabs">
+      <button class="tab-btn ${currentTab==='events'?'active':''}" onclick="switchTab('events')">Events</button>
       <button class="tab-btn ${currentTab==='dex'?'active':''}" onclick="switchTab('dex')">Pokédex</button>
       <button class="tab-btn ${currentTab==='inventory'?'active':''}" onclick="switchTab('inventory')">Inventory</button>
       <button class="tab-btn ${currentTab==='trade'?'active':''}" onclick="switchTab('trade')">Trade Builder</button>
       <button class="tab-btn ${currentTab==='raids'?'active':''}" onclick="switchTab('raids')">Raids</button>
     </div>
     <div id="tabContent"></div>
-    <div class="app-footer">PogoDex Tracker is an unofficial fan project for personal, educational use, and is not affiliated with Nintendo, Niantic, or The Pokémon Company. Raid data via <a href="https://pokemon-go-api.github.io/pokemon-go-api/" target="_blank" rel="noopener" style="color:inherit;">pokemon-go-api</a>, sourced from LeekDuck.com.</div>
+    <div class="app-footer">PogoDex Tracker is an unofficial fan project for personal, educational use, and is not affiliated with Nintendo, Niantic, or The Pokémon Company. Raid data via <a href="https://pokemon-go-api.github.io/pokemon-go-api/" target="_blank" rel="noopener" style="color:inherit;">pokemon-go-api</a>, event data via <a href="https://github.com/bigfoott/ScrapedDuck" target="_blank" rel="noopener" style="color:inherit;">ScrapedDuck</a>, both sourced from LeekDuck.com.</div>
   `;
   renderTabContent();
 }
@@ -974,6 +1102,7 @@ function renderTabContent(){
   if(currentTab==='inventory') return renderInventory(el);
   if(currentTab==='trade') return renderTrade(el);
   if(currentTab==='raids') return renderRaids(el);
+  if(currentTab==='events') return renderEvents(el);
   if(currentTab==='profile') return renderProfile(el);
 }
 
@@ -1851,7 +1980,7 @@ async function bootApp(){
   document.getElementById('app').innerHTML = '<div class="panel" style="text-align:center;padding:60px;"><div class="spinner"></div><div class="bezel-sub">Loading your Pokédex...</div></div>';
   bootError = null;
   try{
-    await Promise.all([loadSpeciesList(), loadPoGoApiData(), loadRaidBossData()]);
+    await Promise.all([loadSpeciesList(), loadPoGoApiData(), loadRaidBossData(), loadEventsData()]);
     await loadDexData();
     render();
     if(!trainerCode) showTrainerCodePrompt();

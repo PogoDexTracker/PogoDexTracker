@@ -1,5 +1,22 @@
 # PogoDex Tracker — Release Notes
 
+## v1.7.1 Beta
+
+**Changed: Events is now the primary tab**
+- Moved Events to the first position in the tab bar and made it the tab the app opens to, instead of Pokédex.
+
+## v1.7.0 Beta
+
+**New: Events tab**
+- Pulls the current and upcoming Pokémon GO event calendar from ScrapedDuck's events feed (which scrapes LeekDuck.com with their permission).
+- Split into "Current Events" (running now, sorted by which ends soonest) and "Upcoming Events" (sorted by which starts soonest). Already-ended events are filtered out entirely.
+- Each card shows the event artwork, its category (Community Day, Raid Hour, Spotlight Hour, etc.), name, and a formatted date range in your own local time. Tapping a card opens the full writeup on LeekDuck.com.
+- Cached for an hour, refreshed automatically after that, per ScrapedDuck's request to wait at least 5 minutes between fetches.
+- Non-fatal on failure, same pattern as Raids: if the feed can't be reached, only the Events tab shows a retry banner.
+
+**Housekeeping**
+- Footer credit updated to include ScrapedDuck alongside pokemon-go-api and LeekDuck.com.
+
 ## v1.6.2 Beta
 
 **Fixed: Raid Card was too wide**
