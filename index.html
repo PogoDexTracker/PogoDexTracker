@@ -361,6 +361,37 @@
   .empty-note{color:var(--text-dim);font-size:13px;padding:20px;text-align:center;}
   .signin-panel{max-width:420px;margin:80px auto;text-align:center;padding:44px 30px;}
   .signin-panel .primary-btn{padding:12px 26px;font-size:15px;}
+
+  .raid-badges{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:4px;}
+  .raid-badge{font-size:9px;padding:2px 6px;border-radius:999px;background:var(--bg-panel-2);color:var(--text-dim);border:1px solid var(--line);}
+  .raid-badge.shiny{color:var(--gold);border-color:var(--gold);}
+  .raid-badge.weather{color:var(--accent);border-color:var(--accent);}
+
+  #raidCardWrap{margin-top:20px;}
+  #raidCard{
+    width:900px;max-width:100%;
+    background:
+      radial-gradient(ellipse 60% 45% at 25% 15%, rgba(80,150,255,0.35) 0%, transparent 60%),
+      radial-gradient(ellipse 55% 45% at 78% 85%, rgba(255,90,60,0.28) 0%, transparent 55%),
+      conic-gradient(from 200deg at 50% 45%, rgba(80,150,255,0.18) 0deg, rgba(10,15,30,0) 90deg, rgba(255,90,60,0.14) 200deg, rgba(10,15,30,0) 300deg, rgba(80,150,255,0.18) 360deg),
+      linear-gradient(135deg,#122238 0%,#0B1728 45%,#050A14 100%);
+    border-radius:24px;padding:26px;color:white;font-family:'Roboto',sans-serif;
+    position:relative;overflow:hidden;
+  }
+  #raidCard::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      repeating-linear-gradient(115deg, rgba(255,255,255,0.05) 0 3px, transparent 3px 22px),
+      repeating-linear-gradient(25deg, rgba(80,150,255,0.08) 0 2px, transparent 2px 32px);
+    mix-blend-mode:screen;
+  }
+  #raidCard::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(circle at 50% 8%, rgba(255,255,255,0.10) 0%, transparent 35%);
+  }
+  .rc-shiny-note{font-size:12px;color:#9C2E7D;font-weight:700;margin-top:4px;}
+
+  .app-footer{margin:28px 0 6px;text-align:center;font-size:11px;line-height:1.6;color:var(--text-dim);opacity:0.75;padding:0 10px;}
 </style>
 </head>
 <body>
@@ -410,6 +441,11 @@ let tradeSearch = '';
 let offeringFilter = '';
 let tradeCardHtml = '';
 let trainerCode = '';
+
+let raidCardSelectedKey = null;
+let raidCardWeatherBoosted = false;
+let raidCardHtml = '';
+let raidCardSearch = '';
 
 let tokenClient = null;
 let accessToken = null;
@@ -657,6 +693,81 @@ async function loadPoGoApiData(){
   }
 }
 
+/* ---------------- RAID BOSSES — pokemon-go-api.github.io ----------------
+   Sources the current raid rotation, itself pulled from LeekDuck.com by
+   the pokemon-go-api project. Powers both the Raids tab and the Raid Card
+   builder. Cached for a few hours since the rotation doesn't change every
+   page load, but refreshed more often than the PoGoAPI accuracy layer
+   since raid bosses rotate on their own schedule. */
+const RAIDBOSS_API = 'https://pokemon-go-api.github.io/pokemon-go-api/api/raidboss.json';
+const RAIDBOSS_CACHE_KEY = 'pogodex-raidboss-cache-v1';
+const RAIDBOSS_CACHE_MAX_AGE = 6 * 60 * 60 * 1000; // refresh every 6 hours
+const RAID_TIERS = [
+  {key:'lvl1', label:'1-Star'},
+  {key:'lvl3', label:'3-Star'},
+  {key:'lvl5', label:'5-Star'},
+  {key:'mega', label:'Mega'},
+  {key:'legendary_mega', label:'Legendary Mega'},
+  {key:'ultra_beast', label:'Ultra Beast'},
+  {key:'ex', label:'EX'},
+  {key:'shadow_lvl1', label:'Shadow 1-Star'},
+  {key:'shadow_lvl3', label:'Shadow 3-Star'},
+  {key:'shadow_lvl5', label:'Shadow 5-Star'}
+];
+let raidBossData = {};
+let raidBossLoaded = false;
+let raidBossError = false;
+
+async function loadRaidBossData(){
+  try{
+    const cached = localStorage.getItem(RAIDBOSS_CACHE_KEY);
+    if(cached){
+      const parsed = JSON.parse(cached);
+      if(Date.now() - parsed.ts < RAIDBOSS_CACHE_MAX_AGE){
+        raidBossData = parsed.data || {};
+        raidBossLoaded = true;
+        return;
+      }
+    }
+  }catch(e){}
+  try{
+    const res = await fetch(RAIDBOSS_API);
+    if(!res.ok) throw new Error('raidboss fetch failed');
+    const json = await res.json();
+    raidBossData = (json && json.currentList) || {};
+    raidBossLoaded = true;
+    raidBossError = false;
+    try{ localStorage.setItem(RAIDBOSS_CACHE_KEY, JSON.stringify({ts:Date.now(), data:raidBossData})); }catch(e){}
+  }catch(e){
+    // Non-fatal — the rest of the app works fine without raid data,
+    // so this only affects the Raids tab, same pattern as the PoGoAPI layer.
+    console.error('Raid boss load failed — continuing without it', e);
+    raidBossError = true;
+  }
+}
+
+async function retryRaidBosses(){
+  raidBossError = false;
+  await loadRaidBossData();
+  if(currentTab === 'raids') renderTabContent();
+}
+
+function allRaidBosses(){
+  const list = [];
+  RAID_TIERS.forEach(t=>{
+    (raidBossData[t.key]||[]).forEach(b=>list.push(Object.assign({tierKey:t.key, tierLabel:t.label}, b)));
+  });
+  return list;
+}
+
+function raidBossName(b){
+  return (b.names && b.names.English) || b.id;
+}
+
+function raidBossKey(b){
+  return `${b.tierKey}:${b.id}:${b.form||''}`;
+}
+
 function isReleasedInGo(id){
   // If PoGoAPI didn't load, don't penalize the whole dex — treat everything as released.
   if(!pogoApiLoaded || Object.keys(pogoReleased).length === 0) return true;
@@ -819,8 +930,10 @@ function render(){
       <button class="tab-btn ${currentTab==='dex'?'active':''}" onclick="switchTab('dex')">Pokédex</button>
       <button class="tab-btn ${currentTab==='inventory'?'active':''}" onclick="switchTab('inventory')">Inventory</button>
       <button class="tab-btn ${currentTab==='trade'?'active':''}" onclick="switchTab('trade')">Trade Builder</button>
+      <button class="tab-btn ${currentTab==='raids'?'active':''}" onclick="switchTab('raids')">Raids</button>
     </div>
     <div id="tabContent"></div>
+    <div class="app-footer">PogoDex Tracker is an unofficial fan project for personal, educational use, and is not affiliated with Nintendo, Niantic, or The Pokémon Company. Raid data via <a href="https://pokemon-go-api.github.io/pokemon-go-api/" target="_blank" rel="noopener" style="color:inherit;">pokemon-go-api</a>, sourced from LeekDuck.com.</div>
   `;
   renderTabContent();
 }
@@ -852,6 +965,7 @@ function renderTabContent(){
   if(currentTab==='dex') return renderDex(el);
   if(currentTab==='inventory') return renderInventory(el);
   if(currentTab==='trade') return renderTrade(el);
+  if(currentTab==='raids') return renderRaids(el);
   if(currentTab==='profile') return renderProfile(el);
 }
 
@@ -1463,13 +1577,170 @@ function downloadTradeCard(){
   });
 }
 
+/* ---------------- RAIDS TAB + RAID CARD BUILDER ---------------- */
+
+function renderRaids(el){
+  if(raidBossError){
+    el.innerHTML = `<div class="panel"><div class="banner">Could not load current raid bosses. Check your connection.<button class="retry-btn" onclick="retryRaidBosses()">Retry</button></div></div>`;
+    return;
+  }
+  const tiersWithBosses = RAID_TIERS.filter(t => (raidBossData[t.key]||[]).length);
+  el.innerHTML = `
+    <div class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+        <h3 class="display" style="margin:0;">Current Raid Bosses</h3>
+        <button class="primary-btn" style="margin-top:0;" onclick="openRaidCardBuilder()">Generate Raid Card</button>
+      </div>
+      <div class="bezel-sub" style="margin-bottom:14px;">Data via pokemon-go-api, sourced from LeekDuck.com. Refreshes every few hours.</div>
+      ${tiersWithBosses.length ? tiersWithBosses.map(t=>`
+        <div class="region-section">
+          <div class="region-title" style="padding:10px 4px 6px;">${t.label}</div>
+          <div class="dex-cards-grid">
+            ${(raidBossData[t.key]||[]).map(b=>renderRaidBossCardHtml(b)).join('')}
+          </div>
+        </div>
+      `).join('') : '<div class="empty-note">No current raid data available.</div>'}
+    </div>
+    <div id="raidCardWrap"></div>
+  `;
+}
+
+function renderRaidBossCardHtml(b){
+  const name = raidBossName(b);
+  const img = (b.assets && b.assets.image) || '';
+  const cp = b.cpRange ? `${b.cpRange[0]}-${b.cpRange[1]} CP` : '';
+  return `
+    <div class="dex-card">
+      <div class="dex-card-body">
+        <img src="${img}" loading="lazy" alt="${name}">
+        <div class="dex-name">${name}</div>
+        <div class="dex-num mono">${cp}</div>
+        <div class="raid-badges">
+          ${b.shiny ? '<span class="raid-badge shiny">Shiny Available</span>' : ''}
+          ${(b.weather && b.weather.length) ? `<span class="raid-badge weather">${b.weather.join(' / ')} boosted</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openRaidCardBuilder(){
+  raidCardSelectedKey = null;
+  raidCardWeatherBoosted = false;
+  raidCardHtml = '';
+  raidCardSearch = '';
+  renderRaidCardBuilder();
+  const wrap = document.getElementById('raidCardWrap');
+  if(wrap) wrap.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function renderRaidCardBuilder(){
+  const wrap = document.getElementById('raidCardWrap');
+  if(!wrap) return;
+  const bosses = allRaidBosses();
+  const results = raidCardSearch ? bosses.filter(b=>raidBossName(b).toLowerCase().includes(raidCardSearch.toLowerCase())).slice(0,20) : [];
+  const selected = raidCardSelectedKey ? bosses.find(b=>raidBossKey(b)===raidCardSelectedKey) : null;
+
+  wrap.innerHTML = `
+    <div class="panel" style="margin-top:16px;">
+      <h3 class="display" style="margin-top:0;">Raid Card Builder</h3>
+      <input type="text" id="raidCardSearchInput" placeholder="Search current raid bosses..." value="${raidCardSearch}">
+      <div class="search-results" id="raidCardSearchResults">${results.map(b=>`
+        <div class="sr-item" onclick="selectRaidBoss('${raidBossKey(b)}')">
+          <img src="${(b.assets&&b.assets.image)||''}">
+          <span style="text-transform:capitalize;font-size:13px;">${raidBossName(b)} (${b.tierLabel})</span>
+        </div>
+      `).join('')}</div>
+      ${selected ? `
+        <div class="toggle-row" style="border-top:none;">
+          <label for="raidWeatherToggle">Weather Boosted</label>
+          <label class="switch"><input type="checkbox" id="raidWeatherToggle" ${raidCardWeatherBoosted?'checked':''} onchange="toggleRaidWeatherBoost()"><span class="slider"></span></label>
+        </div>
+        <button class="primary-btn" onclick="generateRaidCard()">Generate Raid Card</button>
+      ` : ''}
+      <div id="raidCardOutput"></div>
+    </div>
+  `;
+  document.getElementById('raidCardSearchInput').oninput = (ev)=>{
+    raidCardSearch = ev.target.value;
+    renderRaidCardBuilder();
+  };
+  if(raidCardHtml){
+    document.getElementById('raidCardOutput').innerHTML = raidCardHtml + `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="primary-btn" onclick="downloadRaidCard()">Download Image</button>
+      </div>
+    `;
+  }
+}
+
+function selectRaidBoss(key){
+  raidCardSelectedKey = key;
+  raidCardSearch = '';
+  raidCardHtml = '';
+  renderRaidCardBuilder();
+}
+
+function toggleRaidWeatherBoost(){
+  raidCardWeatherBoosted = !raidCardWeatherBoosted;
+  if(raidCardHtml) generateRaidCard();
+  else renderRaidCardBuilder();
+}
+
+function generateRaidCard(){
+  const bosses = allRaidBosses();
+  const b = bosses.find(x=>raidBossKey(x)===raidCardSelectedKey);
+  if(!b) return;
+
+  const name = raidBossName(b);
+  const img = (b.assets && b.assets.image) || '';
+  const useBoost = raidCardWeatherBoosted && b.cpRangeBoost;
+  const cpRange = useBoost ? b.cpRangeBoost : b.cpRange;
+  const cpLabel = cpRange ? `${cpRange[0]} - ${cpRange[1]} CP` : '';
+  const weatherLabel = (useBoost && b.weather && b.weather.length) ? `${b.weather.join(' / ')} Boosted` : '';
+  const digits = trainerCode.replace(/\D/g,'');
+  const formattedCode = digits ? digits.replace(/(\d{4})(?=\d)/g,'$1 ').trim() : '';
+
+  raidCardHtml = `
+    <div id="raidCard">
+      <div class="tc-title">${b.tierLabel} Raid</div>
+      <div class="tc-box" style="text-align:center;">
+        ${b.shiny ? '<div class="tc-sparkle" style="top:10px;right:16px;">✦</div><div class="tc-sparkle" style="bottom:10px;left:16px;">✦</div>' : ''}
+        <img src="${img}" crossorigin="anonymous" style="width:140px;height:140px;object-fit:contain;">
+        <div style="font-size:20px;font-weight:700;text-transform:capitalize;color:#222;margin-top:6px;">${name}</div>
+        <div style="font-size:14px;color:#555;margin-top:2px;">${cpLabel}${weatherLabel ? ` · ${weatherLabel}` : ''}</div>
+        ${b.shiny ? '<div class="rc-shiny-note">✦ Shiny Available</div>' : ''}
+      </div>
+      ${formattedCode ? `
+      <div class="tc-trainer-row">
+        <div class="tc-trainer-text">
+          <div class="tc-trainer-label">Trainer Code</div>
+          <div class="tc-trainer-code mono">${formattedCode}</div>
+        </div>
+      </div>` : ''}
+    </div>
+  `;
+  renderRaidCardBuilder();
+}
+
+function downloadRaidCard(){
+  const node = document.getElementById('raidCard');
+  if(!node || typeof html2canvas==='undefined') return;
+  html2canvas(node, {backgroundColor:null, scale:2, useCORS:true, allowTaint:false}).then(canvas=>{
+    const link = document.createElement('a');
+    link.download = 'pokemon-raid-card.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+}
+
 /* ---------------- BOOT ---------------- */
 
 async function bootApp(){
   document.getElementById('app').innerHTML = '<div class="panel" style="text-align:center;padding:60px;"><div class="spinner"></div><div class="bezel-sub">Loading your Pokédex...</div></div>';
   bootError = null;
   try{
-    await Promise.all([loadSpeciesList(), loadPoGoApiData()]);
+    await Promise.all([loadSpeciesList(), loadPoGoApiData(), loadRaidBossData()]);
     await loadDexData();
     render();
     if(!trainerCode) showTrainerCodePrompt();
