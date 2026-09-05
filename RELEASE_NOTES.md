@@ -1,5 +1,10 @@
 # PogoDex Tracker — Release Notes
 
+## v1.8.6 Beta
+
+**Fixed: Stray horizontal lines between region cards**
+- `.region-section` (the wrapper around each region card) still had a `border-bottom` left over from the old plain accordion-list design, before the gradient cards existed. With the new cards providing their own visual separation, that line just showed up as a stray sliver at the top edge of the next card. Removed.
+
 ## v1.8.5 Beta
 
 **Added: Vertical divider between Wanted and Offering**
