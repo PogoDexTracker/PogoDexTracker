@@ -1,5 +1,16 @@
 # PogoDex Tracker — Release Notes
 
+## v1.8.4 Beta
+
+**Fixed: Wanted and Offering cards were different sizes**
+- Wanted's region cards and Pokémon thumbnails were deliberately shrunk down in v1.8.3 ("compact" sizing) to fit the half-width column, but side by side with Offering's full-size cards it just looked inconsistent. Both panels now use the exact same card and region-card styling, no size difference.
+
+**Fixed: Scrollbars inside each panel**
+- Removed the fixed-height scroll containers on both Wanted and Offering. Regions now expand inline and the page itself scrolls, rather than a cramped scrollbox inside each column.
+
+**Changed: "Generate Trade Card" moved to the top**
+- The button now sits above both columns instead of below them, so it's visible without scrolling past the whole Wanted/Offering layout first.
+
 ## v1.8.3 Beta
 
 **Reworked: Trade Builder "Wanted" panel — same browsing pattern as Offering, no more search**

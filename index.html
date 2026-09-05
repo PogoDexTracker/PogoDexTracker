@@ -187,15 +187,7 @@
   .region-pokeball::after{content:"";position:absolute;top:4px;left:4px;width:4px;height:4px;background:#fff;border:1.5px solid #222;border-radius:50%;}
   .region-card-chevron{position:relative;z-index:1;color:rgba(255,255,255,0.8);font-size:14px;flex-shrink:0;}
 
-  .region-card.compact{padding:12px 14px;}
-  .region-card.compact .region-card-starters img{width:38px;height:38px;margin-left:-10px;}
-  .region-card.compact .region-card-name{font-size:15px;}
-  .wanted-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;padding-top:10px;}
-  .dex-card.compact{padding:6px;cursor:pointer;}
-  .dex-card.compact img{width:44px;height:44px;}
-  .dex-card.compact .dex-name{font-size:11px;}
-  .dex-card.compact .dex-num{font-size:9px;}
-  .dex-card.compact.picked{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset;}
+  .dex-card.picked{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset;}
   .picked-badge{font-size:9px;color:var(--good);margin-top:2px;font-weight:700;}
   .region-toggle{
     width:100%;
@@ -1640,11 +1632,12 @@ async function exportInventoryToSheets(){
 function renderTrade(el){
   el.innerHTML = `
     <div class="panel">
+      <button class="primary-btn" style="margin-top:0;margin-bottom:18px;" onclick="generateTradeCard()">Generate Trade Card</button>
       <div class="trade-cols">
         <div>
           <h3 class="display" style="margin-top:0;">Wanted</h3>
           <div class="bezel-sub" style="margin-bottom:0;">Tap any Pokémon to add or remove it from your wanted list.</div>
-          <div id="wantedBrowserWrap" style="max-height:280px;overflow-y:auto;margin-top:10px;"></div>
+          <div id="wantedBrowserWrap" style="margin-top:10px;"></div>
           <div class="trade-list" style="margin-top:14px;">${tradeWanted.map((w,i)=>`
             <div class="trade-item">
               <img src="${artUrl(w.id, w.shiny)}" onerror="this.src='${artUrl(w.id,false)}'">
@@ -1656,11 +1649,10 @@ function renderTrade(el){
         </div>
         <div>
           <h3 class="display" style="margin-top:0;">Offering (your collection)</h3>
-          <div class="bezel-sub" style="margin-bottom:0;">Tap ✓ or ${SPARKLE_ICON} on anything you've caught to mark it tradeable, then generate the card below.</div>
-          <div id="offeringWrap" style="max-height:420px;overflow-y:auto;margin-top:10px;"></div>
+          <div class="bezel-sub" style="margin-bottom:0;">Tap ✓ or ${SPARKLE_ICON} on anything you've caught to mark it tradeable, then generate the card above.</div>
+          <div id="offeringWrap" style="margin-top:10px;"></div>
         </div>
       </div>
-      <button class="primary-btn" onclick="generateTradeCard()">Generate Trade Card</button>
       <div id="tradeCardWrap"></div>
     </div>
   `;
@@ -1828,7 +1820,7 @@ function toggleWantedPick(id){
 function renderWantedPickCardHtml(p){
   const picked = isWanted(p.id);
   return `
-    <div class="dex-card compact ${picked?'picked':''}" onclick="toggleWantedPick(${p.id})">
+    <div class="dex-card ${picked?'picked':''}" onclick="toggleWantedPick(${p.id})" style="cursor:pointer;">
       <div class="dex-card-body">
         <img src="${artUrl(p.id,false)}" loading="lazy" alt="${p.name}">
         <div class="dex-num mono">#${String(p.id).padStart(4,'0')}</div>
@@ -1851,7 +1843,7 @@ function renderWantedBrowser(){
     const starters = REGION_STARTERS[r.key] || [];
     html += `
       <div class="region-section">
-        <button class="region-card compact" style="background:${gradient};" onclick="toggleWantedRegion('${r.key}')">
+        <button class="region-card" style="background:${gradient};" onclick="toggleWantedRegion('${r.key}')">
           <div class="region-card-starters">
             ${starters.map(id=>`<img src="${artUrl(id,false)}" alt="" loading="lazy">`).join('')}
           </div>
@@ -1861,7 +1853,7 @@ function renderWantedBrowser(){
           </div>
           <span class="region-card-chevron">${collapsed ? '▸' : '▾'}</span>
         </button>
-        ${collapsed ? '' : `<div class="wanted-cards-grid">${items.map(renderWantedPickCardHtml).join('')}</div>`}
+        ${collapsed ? '' : `<div class="dex-cards-grid">${items.map(renderWantedPickCardHtml).join('')}</div>`}
       </div>
     `;
   });
