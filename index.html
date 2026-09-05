@@ -406,6 +406,12 @@
   .event-badge{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);font-weight:700;}
   .event-name{font-size:14px;font-weight:700;margin-top:2px;}
   .event-dates{font-size:11px;color:var(--text-dim);margin-top:2px;}
+
+  .event-detail-section{margin-top:14px;}
+  .event-detail-label{font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+  .event-chip-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .event-chip{display:flex;align-items:center;gap:6px;background:var(--bg-deep);border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 4px;font-size:12px;}
+  .event-chip img{width:26px;height:26px;object-fit:contain;}
 </style>
 </head>
 <body>
@@ -875,15 +881,109 @@ function renderEventCardHtml(e){
   else if(startLabel) rangeLabel = `Starts ${startLabel}`;
   else if(endLabel) rangeLabel = `Ends ${endLabel}`;
   return `
-    <a class="event-card" href="${e.link || '#'}" target="_blank" rel="noopener">
+    <div class="event-card" style="cursor:pointer;" onclick="showEventModal('${e.eventID}')">
       ${e.image ? `<img src="${e.image}" loading="lazy" alt="">` : ''}
       <div class="event-card-body">
         <div class="event-badge">${e.heading || e.eventType || 'Event'}</div>
         <div class="event-name">${e.name || ''}</div>
         ${rangeLabel ? `<div class="event-dates mono">${rangeLabel}</div>` : ''}
       </div>
-    </a>
+    </div>
   `;
+}
+
+// Only a handful of event types carry structured extraData — everything
+// else gets null from the feed. Rendered from our own data/markup only;
+// the full write-up text itself is never pulled in, only linked to.
+function renderEventExtraDataHtml(extraData){
+  if(!extraData) return '';
+  if(extraData.communityday){
+    const d = extraData.communityday;
+    return `
+      ${d.spawns && d.spawns.length ? `
+        <div class="event-detail-section">
+          <div class="event-detail-label">Featured Spawns</div>
+          <div class="event-chip-row">${d.spawns.map(s=>`
+            <div class="event-chip"><img src="${s.image}" alt=""><span>${s.name}</span></div>
+          `).join('')}</div>
+        </div>` : ''}
+      ${d.bonuses && d.bonuses.length ? `
+        <div class="event-detail-section">
+          <div class="event-detail-label">Bonuses</div>
+          <div class="event-chip-row">${d.bonuses.map(b=>`
+            <div class="event-chip"><img src="${b.image}" alt=""><span>${b.text}</span></div>
+          `).join('')}</div>
+        </div>` : ''}
+    `;
+  }
+  if(extraData.raidbattles){
+    const d = extraData.raidbattles;
+    return `
+      ${d.bosses && d.bosses.length ? `
+        <div class="event-detail-section">
+          <div class="event-detail-label">Raid Bosses</div>
+          <div class="event-chip-row">${d.bosses.map(b=>`
+            <div class="event-chip"><img src="${b.image}" alt=""><span>${b.name}${b.canBeShiny?' '+SPARKLE_ICON:''}</span></div>
+          `).join('')}</div>
+        </div>` : ''}
+      ${d.shinies && d.shinies.length ? `
+        <div class="event-detail-section">
+          <div class="event-detail-label">Shiny Debuts</div>
+          <div class="event-chip-row">${d.shinies.map(s=>`
+            <div class="event-chip"><img src="${s.image}" alt=""><span>${s.name}</span></div>
+          `).join('')}</div>
+        </div>` : ''}
+    `;
+  }
+  if(extraData.breakthrough){
+    const d = extraData.breakthrough;
+    return `
+      <div class="event-detail-section">
+        <div class="event-detail-label">Research Breakthrough</div>
+        <div class="event-chip-row">
+          <div class="event-chip"><img src="${d.image}" alt=""><span>${d.name}${d.canBeShiny?' '+SPARKLE_ICON:''}</span></div>
+        </div>
+      </div>
+    `;
+  }
+  if(extraData.spotlight){
+    const d = extraData.spotlight;
+    return `
+      <div class="event-detail-section">
+        <div class="event-detail-label">Spotlight Hour</div>
+        <div class="event-chip-row">
+          <div class="event-chip"><img src="${d.image}" alt=""><span>${d.name}${d.canBeShiny?' '+SPARKLE_ICON:''}</span></div>
+        </div>
+        ${d.bonus ? `<div class="bezel-sub" style="margin-top:6px;">${d.bonus}</div>` : ''}
+      </div>
+    `;
+  }
+  return '';
+}
+
+function showEventModal(eventID){
+  const e = eventsData.find(ev=>ev.eventID===eventID);
+  if(!e) return;
+  const startLabel = formatEventDate(e.start);
+  const endLabel = formatEventDate(e.end);
+  let rangeLabel = '';
+  if(startLabel && endLabel) rangeLabel = `${startLabel} – ${endLabel}`;
+  else if(startLabel) rangeLabel = `Starts ${startLabel}`;
+  else if(endLabel) rangeLabel = `Ends ${endLabel}`;
+  const extraHtml = renderEventExtraDataHtml(e.extraData);
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-hero">
+      ${e.image ? `<img src="${e.image}" alt="" style="width:100%;max-width:280px;height:auto;border-radius:12px;object-fit:cover;">` : ''}
+      <div class="event-badge" style="margin-top:12px;">${e.heading || e.eventType || 'Event'}</div>
+      <div class="modal-name display" style="font-size:19px;">${e.name || ''}</div>
+      ${rangeLabel ? `<div class="bezel-sub" style="margin-top:2px;">${rangeLabel}</div>` : ''}
+    </div>
+    ${extraHtml || '<div class="empty-note">No additional structured details for this event type — see the full write-up for bonuses, research, and more.</div>'}
+    <a href="${e.link || '#'}" target="_blank" rel="noopener" class="primary-btn" style="display:block;text-align:center;text-decoration:none;margin-top:14px;">View full write-up on LeekDuck.com ↗</a>
+  `;
+  document.getElementById('overlay').classList.add('show');
 }
 
 function renderEvents(el){

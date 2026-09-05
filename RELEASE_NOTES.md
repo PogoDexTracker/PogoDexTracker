@@ -1,5 +1,15 @@
 # PogoDex Tracker — Release Notes
 
+## v1.7.2 Beta
+
+Builds on v1.7.1 (Events as the primary/default tab, first in the tab bar).
+
+**New: Event detail modal**
+- Tapping an event card now opens a modal instead of leaving the app.
+- Built entirely from ScrapedDuck's structured `extraData`, never from LeekDuck's article text: Community Day shows featured spawns and bonus icons, raid weekends show bosses and shiny debuts, Research Breakthrough and Spotlight Hour show the featured species and shiny flag.
+- Event types without structured data (most general announcements) show the image, category, name, and dates already on the card, with a clear note that more detail lives in the full write-up.
+- Every modal ends with a "View full write-up on LeekDuck.com" link for the actual article, bonuses list, and research steps, since that content isn't pulled into the app.
+
 ## v1.7.1 Beta
 
 **Changed: Events is now the primary tab**
