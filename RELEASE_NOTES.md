@@ -1,5 +1,20 @@
 # PogoDex Tracker — Release Notes
 
+## v1.8.2 Beta
+
+**Removed: Inventory tab**
+- Caught status already shows directly on the Pokédex grid via the existing checkmark/sparkle toggles, so a separate list view was redundant. Un-marking something is done the same way it's marked, toggling it off on the Pokédex tab.
+- The "Export to Google Sheets" button moved to the Pokédex tab's toolbar so that feature isn't lost.
+
+**Reworked: Trade Builder Offering panel — no more searching, no more pre-marking**
+- Replaces the previous version entirely. The Offering side is now a mirror of the Pokédex grid (same region cards, same card style) but filtered to only what you've actually caught, not the full National Dex and not a search box.
+- Marking something tradeable is now a single click right on the card, one flag that's both the toggle and the selection, instead of a separate pre-marking step done elsewhere.
+- Caught variants (Alolan, Galarian, costumes, etc.) show as their own individual cards, flat alongside the base species, not nested behind a "view variations" panel.
+- "Generate Trade Card" reads whatever is currently marked tradeable at that moment. Confirming a completed trade still works exactly as before, clearing the tradeable flag on exactly the items that were on the generated card.
+- Thumbnails still only switch to shiny art once the shiny toggle is actively selected for that card, same rule as before.
+
+This completes the v1.8 batch: region-card redesign (v1.8.0), Trade Builder rebuild (v1.8.1, now superseded by this version), Inventory removal and the collection-based Offering panel (this release).
+
 ## v1.8.1 Beta
 
 **New: Trade Builder "Offering" panel rebuilt to match the region cards**

@@ -498,13 +498,10 @@ const REGION_GRADIENTS = {
   paldea: 'linear-gradient(135deg,#c76b2d 0%,#5c3013 100%)'
 };
 
-let invFilter = '';
 let bootError = null;
 let tradeWanted = [];
-let tradeOfferingSelected = new Set();
 let tradeCardSnapshot = [];
 let tradeSearch = '';
-let offeringFilter = '';
 let tradeCardHtml = '';
 let trainerCode = '';
 
@@ -1210,7 +1207,6 @@ function render(){
     <div class="tabs">
       <button class="tab-btn ${currentTab==='events'?'active':''}" onclick="switchTab('events')">Events</button>
       <button class="tab-btn ${currentTab==='dex'?'active':''}" onclick="switchTab('dex')">Pokédex</button>
-      <button class="tab-btn ${currentTab==='inventory'?'active':''}" onclick="switchTab('inventory')">Inventory</button>
       <button class="tab-btn ${currentTab==='trade'?'active':''}" onclick="switchTab('trade')">Trade Builder</button>
       <button class="tab-btn ${currentTab==='raids'?'active':''}" onclick="switchTab('raids')">Raids</button>
     </div>
@@ -1245,7 +1241,6 @@ function renderTabContent(){
     return;
   }
   if(currentTab==='dex') return renderDex(el);
-  if(currentTab==='inventory') return renderInventory(el);
   if(currentTab==='trade') return renderTrade(el);
   if(currentTab==='raids') return renderRaids(el);
   if(currentTab==='events') return renderEvents(el);
@@ -1317,6 +1312,7 @@ function toggleRegion(key){
 }
 
 function renderDex(el){
+  const owned = buildOwnedRows();
   el.innerHTML = `
     <div class="panel">
       <div class="search-row">
@@ -1325,6 +1321,7 @@ function renderDex(el){
           <option value="all" ${dexRegion==='all'?'selected':''}>All Regions</option>
           ${REGIONS.map(r=>`<option value="${r.key}" ${dexRegion===r.key?'selected':''}>${r.label}</option>`).join('')}
         </select>
+        <button class="primary-btn" style="margin-top:0;" id="exportSheetsBtn" onclick="exportInventoryToSheets()" ${owned.length ? '' : 'disabled'}>Export to Sheets</button>
       </div>
       <div class="dex-grid" id="dexGrid"></div>
     </div>
@@ -1562,46 +1559,6 @@ function rowSprite(r){
   return artUrl(r.id, r.variant==='shiny');
 }
 
-function renderInventory(el){
-  const rows = buildOwnedRows();
-  const filtered = invFilter ? rows.filter(r=>r.name.toLowerCase().includes(invFilter.toLowerCase())) : rows;
-
-  el.innerHTML = `
-    <div class="panel">
-      <div class="search-row">
-        <input type="text" id="invSearchInput" placeholder="Filter your inventory..." value="${invFilter}">
-        <button class="primary-btn" style="margin-top:0;" id="exportSheetsBtn" onclick="exportInventoryToSheets()" ${rows.length ? '' : 'disabled'}>Export to Google Sheets</button>
-      </div>
-      ${filtered.length ? `<div class="inv-list">${filtered.map(r=>`
-        <div class="inv-row">
-          ${r.form ? '' : `<img src="${rowSprite(r)}" onerror="this.src='${artUrl(r.id,false)}'">`}
-          <div class="name">${r.name}</div>
-          ${r.variant==='shiny' ? `<div class="tag">${SPARKLE_ICON} shiny</div>` : ''}
-          ${r.tradeAvail ? '<div class="tag">available to trade</div>' : ''}
-          <button class="x-btn" title="Remove from inventory" onclick="${r.form ? `removeFormFromInventory(${r.id}, '${r.form}', '${r.variant}')` : `removeFromInventory(${r.id}, '${r.variant}')`}">🗑</button>
-        </div>
-      `).join('')}</div>` : '<div class="empty-note">Nothing caught yet. Head to the Pokédex tab to start tracking.</div>'}
-    </div>
-  `;
-  document.getElementById('invSearchInput').oninput = (ev)=>{ invFilter = ev.target.value; renderTabContent(); };
-}
-
-function removeFromInventory(id, variant){
-  const e = getEntry(id);
-  if(variant === 'shiny'){ e.caughtShiny = false; e.tradeAvailShiny = false; }
-  else { e.caughtNormal = false; e.tradeAvailNormal = false; }
-  saveDexData();
-  renderTabContent();
-}
-
-function removeFormFromInventory(id, formName, variant){
-  const fe = getFormEntry(id, formName);
-  if(variant === 'shiny'){ fe.caughtShiny = false; fe.tradeAvailShiny = false; }
-  else { fe.caughtNormal = false; fe.tradeAvailNormal = false; }
-  saveDexData();
-  renderTabContent();
-}
-
 const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 function buildInventoryExportRows(){
@@ -1698,7 +1655,8 @@ function renderTrade(el){
           `).join('') || '<div class="empty-note">No Pokémon added yet.</div>'}</div>
         </div>
         <div>
-          <h3 class="display" style="margin-top:0;">Offering (from your collection)</h3>
+          <h3 class="display" style="margin-top:0;">Offering (your collection)</h3>
+          <div class="bezel-sub" style="margin-bottom:0;">Tap ✓ or ${SPARKLE_ICON} on anything you've caught to mark it tradeable, then generate the card below.</div>
           <div id="offeringWrap" style="max-height:420px;overflow-y:auto;margin-top:10px;"></div>
         </div>
       </div>
@@ -1707,6 +1665,13 @@ function renderTrade(el){
     </div>
   `;
   renderOfferingPanel();
+  // Form sprites/labels only load once a species' variations have been
+  // viewed on the Pokédex tab. Fill in anything missing so caught forms
+  // show real art and names here instead of falling back to the base
+  // species, then re-render once loaded.
+  ensureFormsLoadedForInventory().then(()=>{
+    if(currentTab === 'trade') renderOfferingPanel();
+  });
   document.getElementById('tradeSearchInput').oninput = (ev)=>{
     tradeSearch = ev.target.value;
     updateTradeSearchResults();
@@ -1722,27 +1687,39 @@ function renderTrade(el){
   }
 }
 
-// Groups only species/forms actually marked Trade Available — not
-// everything caught, matching the request that only what's flagged
-// tradeable in the collection ever shows up here. One card per
-// species/form, since normal and shiny share a single thumbnail that
-// swaps only once the shiny toggle is selected for that offer.
-function buildTradeableGroups(){
+async function ensureFormsLoadedForInventory(){
+  const idsNeedingForms = new Set();
+  Object.keys(dexData).forEach(idStr=>{
+    const id = parseInt(idStr);
+    const e = dexData[idStr];
+    Object.keys(e.forms||{}).forEach(fname=>{
+      const fe = e.forms[fname];
+      if((fe.caughtNormal || fe.caughtShiny) && !formCatalog[id]) idsNeedingForms.add(id);
+    });
+  });
+  if(idsNeedingForms.size) await Promise.all(Array.from(idsNeedingForms).map(id=>loadForms(id)));
+}
+
+// Every caught species AND every caught form/variant, flat — not nested
+// behind a "view variations" panel like the Pokédex tab. Marking tradeable
+// happens with one click right on the card; that flag doubles as both the
+// toggle state and what "Generate Trade Card" reads from.
+function buildInventoryGroups(){
   const groups = [];
   Object.keys(dexData).forEach(idStr=>{
     const id = parseInt(idStr);
     const e = getEntry(id);
     const species = speciesList.find(p=>p.id===id);
     if(!species) return;
-    if(e.tradeAvailNormal || e.tradeAvailShiny){
-      groups.push({id, form:null, name:species.name, tradeAvailNormal:e.tradeAvailNormal, tradeAvailShiny:e.tradeAvailShiny});
+    if(e.caughtNormal || e.caughtShiny){
+      groups.push({id, form:null, name:species.name, caughtNormal:e.caughtNormal, caughtShiny:e.caughtShiny, tradeAvailNormal:e.tradeAvailNormal, tradeAvailShiny:e.tradeAvailShiny});
     }
     Object.keys(e.forms||{}).forEach(fname=>{
       const fe = getFormEntry(id, fname);
-      if(fe.tradeAvailNormal || fe.tradeAvailShiny){
+      if(fe.caughtNormal || fe.caughtShiny){
         const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
         const label = cat ? `${cat.displayName} ${species.name}` : fname;
-        groups.push({id, form:fname, name:label, tradeAvailNormal:fe.tradeAvailNormal, tradeAvailShiny:fe.tradeAvailShiny});
+        groups.push({id, form:fname, name:label, caughtNormal:fe.caughtNormal, caughtShiny:fe.caughtShiny, tradeAvailNormal:fe.tradeAvailNormal, tradeAvailShiny:fe.tradeAvailShiny});
       }
     });
   });
@@ -1758,27 +1735,24 @@ function toggleOfferingRegion(key){
   renderOfferingPanel();
 }
 
-function offeringCardSprite(item){
-  const shinyKey = `${item.id}:${item.form||''}:shiny`;
-  const shinySelected = tradeOfferingSelected.has(shinyKey);
+function renderOfferingCardHtml(item){
+  // The thumbnail only shows shiny art once shiny has actually been
+  // marked tradeable for this card — not just because a shiny is owned.
+  const shinyOn = !!item.tradeAvailShiny;
+  let sprite;
   if(item.form){
     const cat = (formCatalog[item.id]||[]).find(f=>f.name===item.form);
-    return cat ? (shinySelected ? cat.shinySprite : cat.sprite) : artUrl(item.id, shinySelected);
+    sprite = cat ? (shinyOn ? cat.shinySprite : cat.sprite) : artUrl(item.id, shinyOn);
+  } else {
+    sprite = artUrl(item.id, shinyOn);
   }
-  return artUrl(item.id, shinySelected);
-}
-
-function renderOfferingCardHtml(item){
-  const keyNormal = `${item.id}:${item.form||''}:normal`;
-  const keyShiny = `${item.id}:${item.form||''}:shiny`;
-  const normalOn = tradeOfferingSelected.has(keyNormal);
-  const shinyOn = tradeOfferingSelected.has(keyShiny);
-  const sprite = offeringCardSprite(item);
+  const toggleNormal = item.form ? `toggleFormTradeAvail(${item.id}, '${item.form}', 'normal')` : `toggleTradeAvail(${item.id}, 'normal')`;
+  const toggleShiny = item.form ? `toggleFormTradeAvail(${item.id}, '${item.form}', 'shiny')` : `toggleTradeAvail(${item.id}, 'shiny')`;
   return `
     <div class="dex-card">
       <div class="quick-toggles">
-        ${item.tradeAvailNormal ? `<button class="qt-btn ${normalOn?'active':''}" title="Offer normal" onclick="event.stopPropagation(); toggleOfferingCard('${keyNormal}')">✓</button>` : ''}
-        ${item.tradeAvailShiny ? `<button class="qt-btn shiny ${shinyOn?'active':''}" title="Offer shiny" onclick="event.stopPropagation(); toggleOfferingCard('${keyShiny}')">${SPARKLE_ICON}</button>` : ''}
+        ${item.caughtNormal ? `<button class="qt-btn ${item.tradeAvailNormal?'active':''}" title="Mark tradeable (normal)" onclick="event.stopPropagation(); ${toggleNormal}; renderOfferingPanel();">✓</button>` : ''}
+        ${item.caughtShiny ? `<button class="qt-btn shiny ${item.tradeAvailShiny?'active':''}" title="Mark tradeable (shiny)" onclick="event.stopPropagation(); ${toggleShiny}; renderOfferingPanel();">${SPARKLE_ICON}</button>` : ''}
       </div>
       <div class="dex-card-body">
         <img src="${sprite}" loading="lazy" alt="${item.name}" onerror="this.src='${artUrl(item.id,false)}'">
@@ -1789,24 +1763,19 @@ function renderOfferingCardHtml(item){
   `;
 }
 
-function toggleOfferingCard(key){
-  if(tradeOfferingSelected.has(key)) tradeOfferingSelected.delete(key);
-  else tradeOfferingSelected.add(key);
-  renderOfferingPanel();
-}
-
 function renderOfferingPanel(){
   const wrap = document.getElementById('offeringWrap');
   if(!wrap) return;
-  const groups = buildTradeableGroups();
+  const groups = buildInventoryGroups();
   if(!groups.length){
-    wrap.innerHTML = '<div class="empty-note">Nothing marked as available to trade yet. Toggle "Trade Available" from the Pokédex tab.</div>';
+    wrap.innerHTML = '<div class="empty-note">Nothing caught yet. Head to the Pokédex tab to start tracking.</div>';
     return;
   }
   let html = '';
   REGIONS.forEach(r=>{
     const items = groups.filter(g=>g.id>=r.min && g.id<=r.max);
     if(!items.length) return;
+    const tradeableCount = items.filter(g=>g.tradeAvailNormal || g.tradeAvailShiny).length;
     const collapsed = isOfferingRegionCollapsed(r.key);
     const gradient = REGION_GRADIENTS[r.key] || 'linear-gradient(135deg,var(--bg-panel),var(--bg-panel-2))';
     const starters = REGION_STARTERS[r.key] || [];
@@ -1818,7 +1787,7 @@ function renderOfferingPanel(){
           </div>
           <div class="region-card-info">
             <div class="region-card-name">${r.label}</div>
-            <div class="region-card-fraction mono">${items.length} tradeable</div>
+            <div class="region-card-fraction mono">${items.length} caught · ${tradeableCount} tradeable</div>
           </div>
           <span class="region-card-chevron">${collapsed ? '▸' : '▾'}</span>
         </button>
@@ -1826,7 +1795,7 @@ function renderOfferingPanel(){
       </div>
     `;
   });
-  wrap.innerHTML = html || '<div class="empty-note">No tradeable Pokémon in any region yet.</div>';
+  wrap.innerHTML = html || '<div class="empty-note">No caught Pokémon in any region yet.</div>';
 }
 
 function updateTradeSearchResults(){
@@ -1856,11 +1825,11 @@ function removeWanted(i){ tradeWanted.splice(i,1); renderTabContent(); }
 function toggleWantedShiny(i){ tradeWanted[i].shiny = !tradeWanted[i].shiny; renderTabContent(); }
 
 function generateTradeCard(){
-  // Snapshot exactly what's selected right now — Confirm Trade Completed
-  // later acts on this snapshot, not on whatever happens to be checked
-  // at confirm time, so changing your selections afterward can't
+  // Snapshot exactly what's marked tradeable right now — Confirm Trade
+  // Completed later acts on this snapshot, not on whatever happens to be
+  // marked at confirm time, so re-toggling something afterward can't
   // accidentally clear the wrong items.
-  tradeCardSnapshot = Array.from(tradeOfferingSelected);
+  tradeCardSnapshot = buildOwnedRows().filter(r=>r.tradeAvail).map(r=>`${r.id}:${r.form||''}:${r.variant}`);
 
   const offeringData = [];
   tradeCardSnapshot.forEach(key=>{
@@ -1930,7 +1899,6 @@ function confirmTradeCompleted(){
     const target = formName ? getFormEntry(id, formName) : getEntry(id);
     if(variant === 'shiny') target.tradeAvailShiny = false;
     else target.tradeAvailNormal = false;
-    tradeOfferingSelected.delete(key);
   });
   tradeCardSnapshot = [];
   tradeCardHtml = '';
