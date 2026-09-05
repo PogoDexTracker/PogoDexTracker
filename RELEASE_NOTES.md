@@ -1,5 +1,15 @@
 # PogoDex Tracker — Release Notes
 
+## v1.9.2 Beta
+
+**New: Terms of Service page**
+- Added `tos.html`, matching the privacy policy's style. Covers acceptance of terms, what the app is (unofficial fan project, currently Beta), eligibility, account/data handling, acceptable use, third-party data sources, no-warranty/as-is, limitation of liability, changes to terms, termination, and contact (pokedex@tellez.me).
+- Privacy Policy and Terms of Service now cross-link to each other.
+
+**Changed: Discord link moved to the header**
+- Replaced the small text link buried in the footer with a proper button in the upper header, next to the "Caught X / Y" stat pill: Discord's brand color, their recognizable icon, and clear "Discord" label. Much harder to miss than a footnote link.
+- The footer now links to Privacy Policy and Terms of Service.
+
 ## v1.9.1 Beta
 
 **New: Privacy Policy page**
