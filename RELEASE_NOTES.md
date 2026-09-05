@@ -1,5 +1,10 @@
 # PogoDex Tracker — Release Notes
 
+## v1.8.5 Beta
+
+**Added: Vertical divider between Wanted and Offering**
+- A thin border now separates the two Trade Builder columns, since both can show a card for the same region with the same gradient (e.g. Kanto on both sides), making it hard to tell at a glance which list you're looking at. On narrow/mobile widths where the columns stack, this becomes a horizontal divider instead.
+
 ## v1.8.4 Beta
 
 **Fixed: Wanted and Offering cards were different sizes**

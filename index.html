@@ -296,7 +296,12 @@
   .inv-row .tag{font-size:11px;color:var(--gold);background:rgba(255,206,69,0.12);padding:2px 8px;border-radius:999px;}
 
   .trade-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-  @media(max-width:760px){.trade-cols{grid-template-columns:1fr;} .dex-card img{width:56px;height:56px;}}
+  .trade-cols > div:first-child{border-right:1px solid var(--line);padding-right:16px;}
+  @media(max-width:760px){
+    .trade-cols{grid-template-columns:1fr;}
+    .trade-cols > div:first-child{border-right:none;padding-right:0;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:4px;}
+    .dex-card img{width:56px;height:56px;}
+  }
   .trade-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;margin-top:10px;}
   .trade-item{display:flex;align-items:center;gap:8px;background:var(--bg-deep);border:1px solid var(--line);border-radius:8px;padding:6px 10px;}
   .trade-item img{width:32px;height:32px;object-fit:contain;}
