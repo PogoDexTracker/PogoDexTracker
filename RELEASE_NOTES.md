@@ -1,5 +1,14 @@
 # PogoDex Tracker — Release Notes
 
+## v1.9.0 Beta
+
+**New: Hero feature card on the Events tab**
+- The most relevant event (the first current one, or the first upcoming one if nothing's running right now) gets a large featured treatment at the top: big header image, headline, an "Happening Now" / "Coming Up" eyebrow label, dates, and the same structured breakdown the event modal shows (Community Day spawns/bonuses, raid bosses/shinies, Research Breakthrough or Spotlight species, when that data exists for the event type).
+- Ends with a clear "Read the full write-up on LeekDuck.com" button, same as the modal, since the actual article text isn't reproduced, only structured facts from the feed.
+- The featured event is removed from the regular Current/Upcoming lists below it so it isn't shown twice.
+
+**Noted, not built**: an AI-written original article for the hero (a real, legally sound option since original generated prose isn't the same as copying LeekDuck's text) was discussed and intentionally deferred. It needs a small backend (a serverless function holding the API key privately, generating and caching one article per event) rather than anything client-side, since a public static site can't safely hold an API key. Future project, not part of this release.
+
 ## v1.8.6 Beta
 
 **Fixed: Stray horizontal lines between region cards**

@@ -435,6 +435,14 @@
   .event-name{font-size:14px;font-weight:700;margin-top:2px;}
   .event-dates{font-size:11px;color:var(--text-dim);margin-top:2px;}
 
+  .event-hero{position:relative;border-radius:20px;overflow:hidden;margin-bottom:20px;border:1px solid var(--line);background:var(--bg-deep);}
+  .event-hero-img-wrap{position:relative;}
+  .event-hero-img{width:100%;height:220px;object-fit:cover;display:block;}
+  .event-hero-img-wrap::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(10,20,32,0) 45%, rgba(10,20,32,0.95) 100%);}
+  .event-hero-body{padding:18px 22px 22px;}
+  .event-hero-eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);font-weight:700;}
+  .event-hero-name{font-size:26px;font-weight:900;color:var(--text);margin-top:4px;letter-spacing:.2px;}
+
   .event-detail-section{margin-top:14px;}
   .event-detail-label{font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
   .event-chip-row{display:flex;flex-wrap:wrap;gap:8px;}
@@ -1035,19 +1043,52 @@ function showEventModal(eventID){
   document.getElementById('overlay').classList.add('show');
 }
 
+// Featured hero built entirely from ScrapedDuck's structured data, same
+// event-type breakdown as the modal — never the article text itself.
+// AI-generated original article copy is a future-state idea, not built
+// here: doing it well needs a small backend to keep the API key private
+// and the writing scoped strictly to this event's actual data.
+function renderEventHeroHtml(hero, isHeroCurrent){
+  const startLabel = formatEventDate(hero.start);
+  const endLabel = formatEventDate(hero.end);
+  let rangeLabel = '';
+  if(startLabel && endLabel) rangeLabel = `${startLabel} – ${endLabel}`;
+  else if(startLabel) rangeLabel = `Starts ${startLabel}`;
+  else if(endLabel) rangeLabel = `Ends ${endLabel}`;
+  const extraHtml = renderEventExtraDataHtml(hero.extraData);
+  return `
+    <div class="event-hero">
+      ${hero.image ? `<div class="event-hero-img-wrap"><img class="event-hero-img" src="${hero.image}" alt=""></div>` : ''}
+      <div class="event-hero-body">
+        <div class="event-hero-eyebrow">${isHeroCurrent ? 'Happening Now' : 'Coming Up'} · ${hero.heading || hero.eventType || 'Event'}</div>
+        <div class="event-hero-name">${hero.name || ''}</div>
+        ${rangeLabel ? `<div class="bezel-sub" style="margin:4px 0 10px;">${rangeLabel}</div>` : ''}
+        ${extraHtml || '<div class="bezel-sub" style="margin:0;">See the full write-up for bonuses, research, and more.</div>'}
+        <a href="${hero.link || '#'}" target="_blank" rel="noopener" class="primary-btn" style="display:inline-block;text-decoration:none;margin-top:14px;">Read the full write-up on LeekDuck.com ↗</a>
+      </div>
+    </div>
+  `;
+}
+
 function renderEvents(el){
   if(eventsError){
     el.innerHTML = `<div class="panel"><div class="banner">Could not load events. Check your connection.<button class="retry-btn" onclick="retryEvents()">Retry</button></div></div>`;
     return;
   }
   const {current, upcoming} = categorizedEvents();
+  const hero = current[0] || upcoming[0] || null;
+  const isHeroCurrent = !!hero && current[0] === hero;
+  const restCurrent = isHeroCurrent ? current.slice(1) : current;
+  const restUpcoming = (hero && !isHeroCurrent) ? upcoming.slice(1) : upcoming;
+
   el.innerHTML = `
     <div class="panel">
-      <h3 class="display" style="margin-top:0;">Current Events</h3>
       <div class="bezel-sub" style="margin-bottom:14px;">Event data via ScrapedDuck, sourced from LeekDuck.com.</div>
-      ${current.length ? `<div class="event-list">${current.map(renderEventCardHtml).join('')}</div>` : '<div class="empty-note">No events currently running.</div>'}
+      ${hero ? renderEventHeroHtml(hero, isHeroCurrent) : ''}
+      <h3 class="display" style="margin-top:0;">Current Events</h3>
+      ${restCurrent.length ? `<div class="event-list">${restCurrent.map(renderEventCardHtml).join('')}</div>` : `<div class="empty-note">${isHeroCurrent ? 'Nothing else running right now.' : 'No events currently running.'}</div>`}
       <h3 class="display" style="margin:22px 0 4px;">Upcoming Events</h3>
-      ${upcoming.length ? `<div class="event-list">${upcoming.slice(0,30).map(renderEventCardHtml).join('')}</div>` : '<div class="empty-note">No upcoming events listed yet.</div>'}
+      ${restUpcoming.length ? `<div class="event-list">${restUpcoming.slice(0,30).map(renderEventCardHtml).join('')}</div>` : '<div class="empty-note">No upcoming events listed yet.</div>'}
     </div>
   `;
 }
