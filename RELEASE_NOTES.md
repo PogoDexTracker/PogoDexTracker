@@ -1,5 +1,14 @@
 # PogoDex Tracker — Release Notes
 
+## v1.8.1 Beta
+
+**New: Trade Builder "Offering" panel rebuilt to match the region cards**
+- Replaces the old search-and-checkbox flat list entirely, no more searching for Pokémon you already know you have.
+- Same region-card treatment as the Pokédex tab (gradient background, starter artwork, tap to expand), but scoped to only species/forms you've actually marked Trade Available, everything else stays hidden.
+- One combined card per species, normal and shiny share a single thumbnail — the sprite only switches to the shiny art once the shiny toggle is selected for that offer, not just because a shiny is available.
+- Region cards show a "X tradeable" count instead of a caught fraction, and only regions with at least one tradeable Pokémon appear at all.
+- Selecting offers still feeds the same trade card generation and "Confirm Trade Completed" flow as before — only how you browse and select changed.
+
 ## v1.8.0 Beta
 
 **New: Redesigned region cards on the Pokédex tab**

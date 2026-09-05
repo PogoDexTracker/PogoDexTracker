@@ -1698,23 +1698,18 @@ function renderTrade(el){
           `).join('') || '<div class="empty-note">No Pokémon added yet.</div>'}</div>
         </div>
         <div>
-          <h3 class="display" style="margin-top:0;">Offering (from your inventory)</h3>
-          <input type="text" id="offeringFilterInput" placeholder="Filter your inventory..." value="${offeringFilter}">
-          <div class="trade-list" id="offeringList" style="max-height:340px;margin-top:10px;"></div>
+          <h3 class="display" style="margin-top:0;">Offering (from your collection)</h3>
+          <div id="offeringWrap" style="max-height:420px;overflow-y:auto;margin-top:10px;"></div>
         </div>
       </div>
       <button class="primary-btn" onclick="generateTradeCard()">Generate Trade Card</button>
       <div id="tradeCardWrap"></div>
     </div>
   `;
-  updateOfferingList();
+  renderOfferingPanel();
   document.getElementById('tradeSearchInput').oninput = (ev)=>{
     tradeSearch = ev.target.value;
     updateTradeSearchResults();
-  };
-  document.getElementById('offeringFilterInput').oninput = (ev)=>{
-    offeringFilter = ev.target.value;
-    updateOfferingList();
   };
 
   if(tradeCardHtml){
@@ -1727,26 +1722,111 @@ function renderTrade(el){
   }
 }
 
-function updateOfferingList(){
-  const listEl = document.getElementById('offeringList');
-  if(!listEl) return;
-  const rows = buildOwnedRows().filter(r=>r.tradeAvail);
-  const filtered = offeringFilter ? rows.filter(r=>r.name.toLowerCase().includes(offeringFilter.toLowerCase())) : rows;
-  listEl.innerHTML = filtered.length ? filtered.map(r=>{
-    const key = `${r.id}:${r.form||''}:${r.variant}`;
-    const checked = tradeOfferingSelected.has(key);
-    return `
-    <div class="trade-item">
-      <img src="${rowSprite(r) || artUrl(r.id,false)}" onerror="this.src='${artUrl(r.id,false)}'">
-      <span>${r.name}${r.variant==='shiny'?' '+SPARKLE_ICON:''}</span>
-      <label class="mini-toggle"><input type="checkbox" ${checked?'checked':''} onchange="toggleOfferingSelected('${key}')"> offer</label>
-    </div>
-  `;}).join('') : `<div class="empty-note">${buildOwnedRows().length ? 'Nothing marked as available to trade yet. Toggle "Trade Available" from the Pokédex tab.' : 'Mark Pokémon as caught in the Pokédex tab to offer them.'}</div>`;
+// Groups only species/forms actually marked Trade Available — not
+// everything caught, matching the request that only what's flagged
+// tradeable in the collection ever shows up here. One card per
+// species/form, since normal and shiny share a single thumbnail that
+// swaps only once the shiny toggle is selected for that offer.
+function buildTradeableGroups(){
+  const groups = [];
+  Object.keys(dexData).forEach(idStr=>{
+    const id = parseInt(idStr);
+    const e = getEntry(id);
+    const species = speciesList.find(p=>p.id===id);
+    if(!species) return;
+    if(e.tradeAvailNormal || e.tradeAvailShiny){
+      groups.push({id, form:null, name:species.name, tradeAvailNormal:e.tradeAvailNormal, tradeAvailShiny:e.tradeAvailShiny});
+    }
+    Object.keys(e.forms||{}).forEach(fname=>{
+      const fe = getFormEntry(id, fname);
+      if(fe.tradeAvailNormal || fe.tradeAvailShiny){
+        const cat = (formCatalog[id]||[]).find(f=>f.name===fname);
+        const label = cat ? `${cat.displayName} ${species.name}` : fname;
+        groups.push({id, form:fname, name:label, tradeAvailNormal:fe.tradeAvailNormal, tradeAvailShiny:fe.tradeAvailShiny});
+      }
+    });
+  });
+  return groups;
 }
 
-function toggleOfferingSelected(key){
+let offeringCollapsedRegions = {};
+function isOfferingRegionCollapsed(key){
+  return offeringCollapsedRegions[key] !== false;
+}
+function toggleOfferingRegion(key){
+  offeringCollapsedRegions[key] = !isOfferingRegionCollapsed(key);
+  renderOfferingPanel();
+}
+
+function offeringCardSprite(item){
+  const shinyKey = `${item.id}:${item.form||''}:shiny`;
+  const shinySelected = tradeOfferingSelected.has(shinyKey);
+  if(item.form){
+    const cat = (formCatalog[item.id]||[]).find(f=>f.name===item.form);
+    return cat ? (shinySelected ? cat.shinySprite : cat.sprite) : artUrl(item.id, shinySelected);
+  }
+  return artUrl(item.id, shinySelected);
+}
+
+function renderOfferingCardHtml(item){
+  const keyNormal = `${item.id}:${item.form||''}:normal`;
+  const keyShiny = `${item.id}:${item.form||''}:shiny`;
+  const normalOn = tradeOfferingSelected.has(keyNormal);
+  const shinyOn = tradeOfferingSelected.has(keyShiny);
+  const sprite = offeringCardSprite(item);
+  return `
+    <div class="dex-card">
+      <div class="quick-toggles">
+        ${item.tradeAvailNormal ? `<button class="qt-btn ${normalOn?'active':''}" title="Offer normal" onclick="event.stopPropagation(); toggleOfferingCard('${keyNormal}')">✓</button>` : ''}
+        ${item.tradeAvailShiny ? `<button class="qt-btn shiny ${shinyOn?'active':''}" title="Offer shiny" onclick="event.stopPropagation(); toggleOfferingCard('${keyShiny}')">${SPARKLE_ICON}</button>` : ''}
+      </div>
+      <div class="dex-card-body">
+        <img src="${sprite}" loading="lazy" alt="${item.name}" onerror="this.src='${artUrl(item.id,false)}'">
+        <div class="dex-num mono">#${String(item.id).padStart(4,'0')}</div>
+        <div class="dex-name">${item.name}</div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleOfferingCard(key){
   if(tradeOfferingSelected.has(key)) tradeOfferingSelected.delete(key);
   else tradeOfferingSelected.add(key);
+  renderOfferingPanel();
+}
+
+function renderOfferingPanel(){
+  const wrap = document.getElementById('offeringWrap');
+  if(!wrap) return;
+  const groups = buildTradeableGroups();
+  if(!groups.length){
+    wrap.innerHTML = '<div class="empty-note">Nothing marked as available to trade yet. Toggle "Trade Available" from the Pokédex tab.</div>';
+    return;
+  }
+  let html = '';
+  REGIONS.forEach(r=>{
+    const items = groups.filter(g=>g.id>=r.min && g.id<=r.max);
+    if(!items.length) return;
+    const collapsed = isOfferingRegionCollapsed(r.key);
+    const gradient = REGION_GRADIENTS[r.key] || 'linear-gradient(135deg,var(--bg-panel),var(--bg-panel-2))';
+    const starters = REGION_STARTERS[r.key] || [];
+    html += `
+      <div class="region-section">
+        <button class="region-card" style="background:${gradient};" onclick="toggleOfferingRegion('${r.key}')">
+          <div class="region-card-starters">
+            ${starters.map(id=>`<img src="${artUrl(id,false)}" alt="" loading="lazy">`).join('')}
+          </div>
+          <div class="region-card-info">
+            <div class="region-card-name">${r.label}</div>
+            <div class="region-card-fraction mono">${items.length} tradeable</div>
+          </div>
+          <span class="region-card-chevron">${collapsed ? '▸' : '▾'}</span>
+        </button>
+        ${collapsed ? '' : `<div class="dex-cards-grid">${items.map(renderOfferingCardHtml).join('')}</div>`}
+      </div>
+    `;
+  });
+  wrap.innerHTML = html || '<div class="empty-note">No tradeable Pokémon in any region yet.</div>';
 }
 
 function updateTradeSearchResults(){
