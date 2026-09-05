@@ -1,5 +1,15 @@
 # PogoDex Tracker — Release Notes
 
+## v1.9.1 Beta
+
+**New: Privacy Policy page**
+- Added `privacy.html`, a standalone page matching the app's dark theme, covering what data is collected (Google account info, trainer code, collection data), where it lives (your own Google Drive, `drive.file` scope only), the third-party data sources used (PokeAPI, pogoapi.net, pokemon-go-api, ScrapedDuck — all one-way, non-personal), local storage caching, how to delete your data, and a contact address (pokedex@tellez.me).
+- Linked from the app's footer.
+- Worth knowing: Google requires a privacy policy URL for OAuth apps requesting Drive access, so this also supports keeping the sign-in flow in good standing, not just general good practice.
+
+**New: Discord link in footer**
+- Added a placeholder link to the testing Discord server, opens in a new tab from the footer.
+
 ## v1.9.0 Beta
 
 **New: Hero feature card on the Events tab**

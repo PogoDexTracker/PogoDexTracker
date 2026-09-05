@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — PogoDex Tracker</title>
+<style>
+  :root{
+    --bg-deep:#0A1420;
+    --bg-panel:#0F1E2E;
+    --bg-panel-2:#142A3D;
+    --line:#20394D;
+    --accent:#7C93B0;
+    --accent-dim:#45566A;
+    --red:#FF4B4B;
+    --gold:#FFCE45;
+    --text:#EAF6F0;
+    --text-dim:#84A2B0;
+    --good:#4ADE80;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #17273a 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #14212e 0%, transparent 55%),
+      var(--bg-deep);
+    color:var(--text);
+    font-family:'Roboto',sans-serif;
+    min-height:100vh;
+  }
+  h1,h2,.display{font-family:'Roboto',sans-serif;font-weight:700;}
+  .wrap{max-width:760px;margin:0 auto;padding:32px 20px 60px;}
+  .back-link{color:var(--accent);text-decoration:none;font-size:14px;}
+  .back-link:hover{color:var(--text);}
+  h1{font-size:28px;margin:18px 0 4px;}
+  .updated{color:var(--text-dim);font-size:13px;margin-bottom:28px;}
+  .panel{
+    background:linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:24px 26px;
+    margin-bottom:18px;
+  }
+  h2{font-size:18px;color:var(--gold);margin-top:0;margin-bottom:10px;}
+  p{line-height:1.6;color:var(--text);font-size:14.5px;}
+  ul{line-height:1.7;color:var(--text);font-size:14.5px;padding-left:22px;}
+  li{margin-bottom:4px;}
+  a{color:var(--accent);}
+  a:hover{color:var(--text);}
+  .contact-box{
+    background:var(--bg-deep);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:14px 18px;
+    margin-top:8px;
+    font-size:14.5px;
+  }
+  .footer-note{margin-top:24px;text-align:center;font-size:11px;line-height:1.6;color:var(--text-dim);opacity:0.75;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html">← Back to PogoDex Tracker</a>
+  <h1>Privacy Policy</h1>
+  <div class="updated">Last updated: September 2026</div>
+
+  <div class="panel">
+    <h2>What this app is</h2>
+    <p>PogoDex Tracker is an unofficial, fan-made Pokémon GO collection tracker. It is not affiliated with Nintendo, Niantic, or The Pokémon Company. This policy explains what information the app handles and how.</p>
+  </div>
+
+  <div class="panel">
+    <h2>What we collect</h2>
+    <ul>
+      <li><strong>Google account info:</strong> your name, email address, and profile picture, provided by Google Sign-In when you log in.</li>
+      <li><strong>Your trainer code</strong>, if you choose to enter one.</li>
+      <li><strong>Your Pokémon collection data:</strong> which species and forms you've marked as caught, shiny, or trade-available.</li>
+    </ul>
+    <p>We don't collect anything beyond what's needed to run the app, and we don't ask for information unrelated to your Pokémon GO collection.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Where your data lives</h2>
+    <p>Your collection data is stored in a single file created by the app in <strong>your own Google Drive</strong>, not on a server we control. The app requests Google's <code>drive.file</code> permission scope, which means it can only see and edit files it created itself. It cannot see, read, or modify any other files in your Drive.</p>
+    <p>If you use the "Export to Sheets" feature, that spreadsheet is also created in your own Google account, and only happens when you actively click that button.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Local storage on your device</h2>
+    <p>The app caches some public reference data in your browser's local storage to avoid repeated downloads, things like the current raid rotation, event listings, and Pokémon species data pulled from public APIs. This cached data is not personal to you and contains no information about your account or collection.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Third-party data sources</h2>
+    <p>The app pulls public, non-personal Pokémon GO reference data from a few outside sources to power its features. This is one-way: the app reads public data from them, and none of your personal information or account data is ever sent to them.</p>
+    <ul>
+      <li><a href="https://pokeapi.co/" target="_blank" rel="noopener">PokeAPI</a> — species names and artwork</li>
+      <li><a href="https://pogoapi.net/" target="_blank" rel="noopener">pogoapi.net</a> — Pokémon GO release and shiny-availability data</li>
+      <li><a href="https://pokemon-go-api.github.io/pokemon-go-api/" target="_blank" rel="noopener">pokemon-go-api</a> — current raid boss data, sourced from LeekDuck.com</li>
+      <li><a href="https://github.com/bigfoott/ScrapedDuck" target="_blank" rel="noopener">ScrapedDuck</a> — event calendar data, sourced from LeekDuck.com</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>What we don't do</h2>
+    <ul>
+      <li>We don't sell or share your data with anyone.</li>
+      <li>We don't run ads or ad tracking in the app.</li>
+      <li>We don't use analytics or tracking scripts.</li>
+      <li>We don't have access to your data ourselves — it lives in your own Google account, not on a server we operate.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>Deleting your data</h2>
+    <p>Because your data lives in your own Google Drive, you're always in control of it:</p>
+    <ul>
+      <li>Delete the app's data file directly from your Google Drive.</li>
+      <li>Revoke the app's access entirely from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account permissions page</a>.</li>
+      <li>Clear your browser's local storage to remove cached public reference data.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2>Children's privacy</h2>
+    <p>This app is not directed at children under 13, and we do not knowingly collect information from children under 13.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Changes to this policy</h2>
+    <p>If this policy changes, the "last updated" date at the top of this page will change accordingly.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Contact</h2>
+    <p>Questions about this policy or how your data is handled?</p>
+    <div class="contact-box">📧 <a href="mailto:pokedex@tellez.me">pokedex@tellez.me</a></div>
+  </div>
+
+  <div class="footer-note">PogoDex Tracker is an unofficial fan project and is not affiliated with Nintendo, Niantic, or The Pokémon Company.</div>
+</div>
+</body>
+</html>
