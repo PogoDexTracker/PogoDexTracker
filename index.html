@@ -442,10 +442,17 @@ let offeringFilter = '';
 let tradeCardHtml = '';
 let trainerCode = '';
 
-let raidCardSelectedKey = null;
-let raidCardWeatherBoosted = false;
-let raidCardHtml = '';
+let raidCardSelectedId = null;
 let raidCardSearch = '';
+let raidCardTierKey = 'lvl5';
+let raidCardCpMin = '';
+let raidCardCpMax = '';
+let raidCardCpBoostMin = '';
+let raidCardCpBoostMax = '';
+let raidCardShiny = false;
+let raidCardWeatherBoosted = false;
+let raidCardWeatherTypes = [];
+let raidCardHtml = '';
 
 let tokenClient = null;
 let accessToken = null;
@@ -1624,47 +1631,63 @@ function renderRaidBossCardHtml(b){
   `;
 }
 
+const WEATHER_TYPES = ['Sunny/Clear','Rainy','Partly Cloudy','Cloudy','Windy','Snow','Fog'];
+
+function isWeatherActive(w){
+  return raidCardWeatherTypes.some(x => x.toLowerCase().includes(w.toLowerCase()) || w.toLowerCase().includes(x.toLowerCase()));
+}
+
+function toggleWeatherType(w){
+  if(isWeatherActive(w)){
+    raidCardWeatherTypes = raidCardWeatherTypes.filter(x => !(x.toLowerCase().includes(w.toLowerCase()) || w.toLowerCase().includes(x.toLowerCase())));
+  } else {
+    raidCardWeatherTypes.push(w);
+  }
+  renderRaidCardBuilder();
+}
+
 function openRaidCardBuilder(){
-  raidCardSelectedKey = null;
-  raidCardWeatherBoosted = false;
-  raidCardHtml = '';
+  raidCardSelectedId = null;
   raidCardSearch = '';
+  raidCardHtml = '';
+  raidCardTierKey = 'lvl5';
+  raidCardCpMin = '';
+  raidCardCpMax = '';
+  raidCardCpBoostMin = '';
+  raidCardCpBoostMax = '';
+  raidCardShiny = false;
+  raidCardWeatherBoosted = false;
+  raidCardWeatherTypes = [];
   renderRaidCardBuilder();
   const wrap = document.getElementById('raidCardWrap');
   if(wrap) wrap.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
+// The search input is rendered once here and never rebuilt on keystroke —
+// only updateRaidCardSearchResults() touches the results list below it.
+// Rebuilding the input itself on every keystroke was what caused the
+// "only one letter registers" bug, since the input loses focus the
+// instant its own innerHTML gets replaced.
 function renderRaidCardBuilder(){
   const wrap = document.getElementById('raidCardWrap');
   if(!wrap) return;
-  const bosses = allRaidBosses();
-  const results = raidCardSearch ? bosses.filter(b=>raidBossName(b).toLowerCase().includes(raidCardSearch.toLowerCase())).slice(0,20) : [];
-  const selected = raidCardSelectedKey ? bosses.find(b=>raidBossKey(b)===raidCardSelectedKey) : null;
+  const selected = raidCardSelectedId ? speciesList.find(p=>p.id===raidCardSelectedId) : null;
 
   wrap.innerHTML = `
     <div class="panel" style="margin-top:16px;">
       <h3 class="display" style="margin-top:0;">Raid Card Builder</h3>
-      <input type="text" id="raidCardSearchInput" placeholder="Search current raid bosses..." value="${raidCardSearch}">
-      <div class="search-results" id="raidCardSearchResults">${results.map(b=>`
-        <div class="sr-item" onclick="selectRaidBoss('${raidBossKey(b)}')">
-          <img src="${(b.assets&&b.assets.image)||''}">
-          <span style="text-transform:capitalize;font-size:13px;">${raidBossName(b)} (${b.tierLabel})</span>
-        </div>
-      `).join('')}</div>
-      ${selected ? `
-        <div class="toggle-row" style="border-top:none;">
-          <label for="raidWeatherToggle">Weather Boosted</label>
-          <label class="switch"><input type="checkbox" id="raidWeatherToggle" ${raidCardWeatherBoosted?'checked':''} onchange="toggleRaidWeatherBoost()"><span class="slider"></span></label>
-        </div>
-        <button class="primary-btn" onclick="generateRaidCard()">Generate Raid Card</button>
-      ` : ''}
+      <input type="text" id="raidCardSearchInput" placeholder="Search any Pokémon..." value="${raidCardSearch}">
+      <div class="search-results" id="raidCardSearchResults"></div>
+      ${selected ? renderRaidCardFieldsHtml(selected) : ''}
       <div id="raidCardOutput"></div>
     </div>
   `;
   document.getElementById('raidCardSearchInput').oninput = (ev)=>{
     raidCardSearch = ev.target.value;
-    renderRaidCardBuilder();
+    updateRaidCardSearchResults();
   };
+  updateRaidCardSearchResults();
+  if(selected) wireRaidCardFieldEvents();
   if(raidCardHtml){
     document.getElementById('raidCardOutput').innerHTML = raidCardHtml + `
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -1674,42 +1697,129 @@ function renderRaidCardBuilder(){
   }
 }
 
-function selectRaidBoss(key){
-  raidCardSelectedKey = key;
+function updateRaidCardSearchResults(){
+  const resultsEl = document.getElementById('raidCardSearchResults');
+  if(!resultsEl) return;
+  const q = raidCardSearch.toLowerCase();
+  const results = q ? speciesList.filter(p=>p.name.includes(q) || String(p.id)===q).slice(0,20) : [];
+  resultsEl.innerHTML = results.map(p=>`
+    <div class="sr-item" onclick="selectRaidCardSpecies(${p.id})">
+      <img src="${artUrl(p.id,false)}">
+      <span style="text-transform:capitalize;font-size:13px;">${p.name}</span>
+    </div>
+  `).join('');
+}
+
+function renderRaidCardFieldsHtml(species){
+  const match = allRaidBosses().find(b=>raidBossName(b).toLowerCase() === species.name.toLowerCase());
+  return `
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px;">
+        <img src="${artUrl(species.id, raidCardShiny)}" onerror="this.src='${artUrl(species.id,false)}'" style="width:56px;height:56px;object-fit:contain;">
+        <div>
+          <div style="font-weight:700;text-transform:capitalize;">${species.name}</div>
+          <div class="bezel-sub" style="margin:0;">${match ? 'Auto-filled from live raid data — feel free to adjust.' : 'Not in the current live raid rotation — enter details manually.'}</div>
+        </div>
+      </div>
+      <div class="search-row" style="margin-bottom:10px;">
+        <select id="raidTierSelect">
+          ${RAID_TIERS.map(t=>`<option value="${t.key}" ${raidCardTierKey===t.key?'selected':''}>${t.label}</option>`).join('')}
+        </select>
+        <label class="mini-toggle"><input type="checkbox" id="raidShinyToggle" ${raidCardShiny?'checked':''}> Shiny Available</label>
+      </div>
+      <div class="search-row" style="margin-bottom:6px;">
+        <input type="number" id="raidCpMin" placeholder="CP min" value="${raidCardCpMin}" style="width:100px;">
+        <input type="number" id="raidCpMax" placeholder="CP max" value="${raidCardCpMax}" style="width:100px;">
+        <span class="bezel-sub" style="margin:0;">Normal CP range</span>
+      </div>
+      <div class="search-row" style="margin-bottom:10px;">
+        <input type="number" id="raidCpBoostMin" placeholder="CP min" value="${raidCardCpBoostMin}" style="width:100px;">
+        <input type="number" id="raidCpBoostMax" placeholder="CP max" value="${raidCardCpBoostMax}" style="width:100px;">
+        <span class="bezel-sub" style="margin:0;">Weather-boosted CP range</span>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="var-trade-label" style="margin-bottom:6px;">Boost Weather</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${WEATHER_TYPES.map(w=>`<button type="button" class="tab-btn ${isWeatherActive(w)?'active':''}" style="padding:6px 12px;font-size:12px;" onclick="toggleWeatherType('${w}')">${w}</button>`).join('')}
+        </div>
+      </div>
+      <div class="toggle-row" style="border-top:none;">
+        <label for="raidWeatherToggle">Show Weather Boosted on Card</label>
+        <label class="switch"><input type="checkbox" id="raidWeatherToggle" ${raidCardWeatherBoosted?'checked':''}><span class="slider"></span></label>
+      </div>
+      <button class="primary-btn" onclick="generateRaidCard()">Generate Raid Card</button>
+    </div>
+  `;
+}
+
+function wireRaidCardFieldEvents(){
+  const tierSel = document.getElementById('raidTierSelect');
+  if(tierSel) tierSel.onchange = (ev)=>{ raidCardTierKey = ev.target.value; };
+  const shinyToggle = document.getElementById('raidShinyToggle');
+  if(shinyToggle) shinyToggle.onchange = (ev)=>{ raidCardShiny = ev.target.checked; };
+  const cpMin = document.getElementById('raidCpMin');
+  if(cpMin) cpMin.oninput = (ev)=>{ raidCardCpMin = ev.target.value; };
+  const cpMax = document.getElementById('raidCpMax');
+  if(cpMax) cpMax.oninput = (ev)=>{ raidCardCpMax = ev.target.value; };
+  const cpBoostMin = document.getElementById('raidCpBoostMin');
+  if(cpBoostMin) cpBoostMin.oninput = (ev)=>{ raidCardCpBoostMin = ev.target.value; };
+  const cpBoostMax = document.getElementById('raidCpBoostMax');
+  if(cpBoostMax) cpBoostMax.oninput = (ev)=>{ raidCardCpBoostMax = ev.target.value; };
+  const weatherToggle = document.getElementById('raidWeatherToggle');
+  if(weatherToggle) weatherToggle.onchange = (ev)=>{ raidCardWeatherBoosted = ev.target.checked; };
+}
+
+function selectRaidCardSpecies(id){
+  const species = speciesList.find(p=>p.id===id);
+  if(!species) return;
+  raidCardSelectedId = id;
   raidCardSearch = '';
   raidCardHtml = '';
+  const match = allRaidBosses().find(b=>raidBossName(b).toLowerCase() === species.name.toLowerCase());
+  if(match){
+    raidCardTierKey = match.tierKey;
+    raidCardCpMin = match.cpRange ? match.cpRange[0] : '';
+    raidCardCpMax = match.cpRange ? match.cpRange[1] : '';
+    raidCardCpBoostMin = match.cpRangeBoost ? match.cpRangeBoost[0] : '';
+    raidCardCpBoostMax = match.cpRangeBoost ? match.cpRangeBoost[1] : '';
+    raidCardShiny = !!match.shiny;
+    raidCardWeatherTypes = match.weather ? match.weather.slice() : [];
+  } else {
+    raidCardTierKey = 'lvl5';
+    raidCardCpMin = '';
+    raidCardCpMax = '';
+    raidCardCpBoostMin = '';
+    raidCardCpBoostMax = '';
+    raidCardShiny = false;
+    raidCardWeatherTypes = [];
+  }
+  raidCardWeatherBoosted = false;
   renderRaidCardBuilder();
 }
 
-function toggleRaidWeatherBoost(){
-  raidCardWeatherBoosted = !raidCardWeatherBoosted;
-  if(raidCardHtml) generateRaidCard();
-  else renderRaidCardBuilder();
-}
-
 function generateRaidCard(){
-  const bosses = allRaidBosses();
-  const b = bosses.find(x=>raidBossKey(x)===raidCardSelectedKey);
-  if(!b) return;
+  const species = raidCardSelectedId ? speciesList.find(p=>p.id===raidCardSelectedId) : null;
+  if(!species) return;
 
-  const name = raidBossName(b);
-  const img = (b.assets && b.assets.image) || '';
-  const useBoost = raidCardWeatherBoosted && b.cpRangeBoost;
-  const cpRange = useBoost ? b.cpRangeBoost : b.cpRange;
-  const cpLabel = cpRange ? `${cpRange[0]} - ${cpRange[1]} CP` : '';
-  const weatherLabel = (useBoost && b.weather && b.weather.length) ? `${b.weather.join(' / ')} Boosted` : '';
+  const tier = RAID_TIERS.find(t=>t.key===raidCardTierKey);
+  const img = artUrl(species.id, raidCardShiny);
+  const useBoost = raidCardWeatherBoosted && raidCardCpBoostMin && raidCardCpBoostMax;
+  const cpLabel = useBoost
+    ? `${raidCardCpBoostMin} - ${raidCardCpBoostMax} CP`
+    : (raidCardCpMin && raidCardCpMax ? `${raidCardCpMin} - ${raidCardCpMax} CP` : '');
+  const weatherLabel = (raidCardWeatherBoosted && raidCardWeatherTypes.length) ? `${raidCardWeatherTypes.join(' / ')} Boosted` : '';
   const digits = trainerCode.replace(/\D/g,'');
   const formattedCode = digits ? digits.replace(/(\d{4})(?=\d)/g,'$1 ').trim() : '';
 
   raidCardHtml = `
     <div id="raidCard">
-      <div class="tc-title">${b.tierLabel} Raid</div>
+      <div class="tc-title">${tier ? tier.label : ''} Raid</div>
       <div class="tc-box" style="text-align:center;">
-        ${b.shiny ? '<div class="tc-sparkle" style="top:10px;right:16px;">✦</div><div class="tc-sparkle" style="bottom:10px;left:16px;">✦</div>' : ''}
-        <img src="${img}" crossorigin="anonymous" style="width:140px;height:140px;object-fit:contain;">
-        <div style="font-size:20px;font-weight:700;text-transform:capitalize;color:#222;margin-top:6px;">${name}</div>
-        <div style="font-size:14px;color:#555;margin-top:2px;">${cpLabel}${weatherLabel ? ` · ${weatherLabel}` : ''}</div>
-        ${b.shiny ? '<div class="rc-shiny-note">✦ Shiny Available</div>' : ''}
+        ${raidCardShiny ? '<div class="tc-sparkle" style="top:10px;right:16px;">✦</div><div class="tc-sparkle" style="bottom:10px;left:16px;">✦</div>' : ''}
+        <img src="${img}" crossorigin="anonymous" onerror="this.src='${artUrl(species.id,false)}'" style="width:140px;height:140px;object-fit:contain;">
+        <div style="font-size:20px;font-weight:700;text-transform:capitalize;color:#222;margin-top:6px;">${species.name}</div>
+        ${(cpLabel || weatherLabel) ? `<div style="font-size:14px;color:#555;margin-top:2px;">${cpLabel}${weatherLabel ? ` · ${weatherLabel}` : ''}</div>` : ''}
+        ${raidCardShiny ? '<div class="rc-shiny-note">✦ Shiny Available</div>' : ''}
       </div>
       ${formattedCode ? `
       <div class="tc-trainer-row">

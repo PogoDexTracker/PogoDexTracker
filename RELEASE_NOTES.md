@@ -1,5 +1,17 @@
 # PogoDex Tracker — Release Notes
 
+## v1.6.1 Beta
+
+**Fixed: Raid Card search only accepting one letter at a time**
+- The search input was being rebuilt from scratch on every keystroke, which meant it lost focus after each character. Fixed by only re-rendering the results list below the input, never the input itself, the same pattern already used by the Trade Builder's search box.
+
+**Changed: Raid Card builder now searches every Pokémon, not just the current live raid rotation**
+- The live raid feed only reflects one global snapshot and doesn't cover regional or event-specific bosses (for example, Armored Mewtwo appearing in Tokyo right now wouldn't be in it).
+- Search now covers the full species list, same as the Pokédex and Trade Builder.
+- Selecting a Pokémon that matches a boss in the current live feed auto-fills tier, CP range, weather-boosted CP range, Shiny Available, and boost weather.
+- Selecting a Pokémon with no live match leaves those fields blank and editable, tier dropdown, CP range fields, a Shiny Available checkbox, and weather chips, so regional or event bosses can still get a card.
+- All fields stay editable either way, so auto-filled data can be corrected if it's stale.
+
 ## v1.6.0 Beta
 
 **New: Raids tab**
