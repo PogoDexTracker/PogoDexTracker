@@ -1,5 +1,15 @@
 # PogoDex Tracker — Release Notes
 
+## v1.8.0 Beta
+
+**New: Redesigned region cards on the Pokédex tab**
+- Replaces the plain accordion toggle bar with a full-width gradient card per region, each with a distinct color theme and the region's three starter Pokémon shown as overlapping artwork.
+- Shows a caught/total fraction for regions still in progress, or a "Complete! ⚫" badge with a small pokeball icon once every Pokémon in that region is caught.
+- Tapping a card still expands/collapses it in place to reveal the region's Pokémon grid below, same interaction as before, just a much more visually distinct front door into each region.
+- Starter artwork is pulled from fixed National Dex numbers (no new data source needed) — the same sprite pipeline already used everywhere else in the app.
+
+Still queued for the v1.8.x batch: the region-exclusive Pokémon showcase, and the Trade Builder "Offering" panel rebuild (region-grouped thumbnails of owned/tradeable Pokémon, replacing the search-based flat list).
+
 ## v1.7.2 Beta
 
 Builds on v1.7.1 (Events as the primary/default tab, first in the tab bar).

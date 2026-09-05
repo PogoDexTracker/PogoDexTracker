@@ -165,6 +165,27 @@
   }
   .region-section{border-bottom:1px solid var(--line);padding-bottom:8px;}
   .region-section:last-child{border-bottom:none;}
+  .region-card{
+    width:100%;display:flex;align-items:center;gap:14px;
+    border:none;border-radius:18px;padding:16px 18px;margin-bottom:4px;
+    cursor:pointer;position:relative;overflow:hidden;text-align:left;
+    font-family:'Roboto',sans-serif;
+  }
+  .region-card::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%);
+  }
+  .region-card-starters{display:flex;flex-shrink:0;position:relative;z-index:1;}
+  .region-card-starters img{width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));margin-left:-14px;}
+  .region-card-starters img:first-child{margin-left:0;}
+  .region-card-info{flex:1;position:relative;z-index:1;min-width:0;}
+  .region-card-name{font-size:17px;font-weight:900;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.5);letter-spacing:.3px;}
+  .region-card-fraction{font-size:13px;color:rgba(255,255,255,0.85);margin-top:2px;}
+  .region-card-complete{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#fff;margin-top:2px;}
+  .region-pokeball{width:14px;height:14px;border-radius:50%;background:linear-gradient(#fff 50%,#eee 50%);border:2px solid #222;position:relative;flex-shrink:0;}
+  .region-pokeball::before{content:"";position:absolute;top:5px;left:0;right:0;height:2px;background:#222;}
+  .region-pokeball::after{content:"";position:absolute;top:4px;left:4px;width:4px;height:4px;background:#fff;border:1.5px solid #222;border-radius:50%;}
+  .region-card-chevron{position:relative;z-index:1;color:rgba(255,255,255,0.8);font-size:14px;flex-shrink:0;}
   .region-toggle{
     width:100%;
     display:flex;
@@ -452,6 +473,31 @@ const REGIONS = [
 function regionForId(id){
   return REGIONS.find(r=>id>=r.min && id<=r.max) || null;
 }
+
+// Starter trios by National Dex number — fixed game data, no lookup needed.
+const REGION_STARTERS = {
+  kanto:  [1, 4, 7],
+  johto:  [152, 155, 158],
+  hoenn:  [252, 255, 258],
+  sinnoh: [387, 390, 393],
+  unova:  [495, 498, 501],
+  kalos:  [650, 653, 656],
+  alola:  [722, 725, 728],
+  galar:  [810, 813, 816],
+  paldea: [906, 909, 912]
+};
+const REGION_GRADIENTS = {
+  kanto:  'linear-gradient(135deg,#7c2d3a 0%,#3a1620 100%)',
+  johto:  'linear-gradient(135deg,#2d6a4f 0%,#163425 100%)',
+  hoenn:  'linear-gradient(135deg,#1d6fa5 0%,#0d3450 100%)',
+  sinnoh: 'linear-gradient(135deg,#4a3a7c 0%,#241d3d 100%)',
+  unova:  'linear-gradient(135deg,#7c5a2d 0%,#3d2c16 100%)',
+  kalos:  'linear-gradient(135deg,#a52d7c 0%,#4a1440 100%)',
+  alola:  'linear-gradient(135deg,#1d9e8f 0%,#0d4a42 100%)',
+  galar:  'linear-gradient(135deg,#3a4a7c 0%,#1c2440 100%)',
+  paldea: 'linear-gradient(135deg,#c76b2d 0%,#5c3013 100%)'
+};
+
 let invFilter = '';
 let bootError = null;
 let tradeWanted = [];
@@ -1338,12 +1384,22 @@ function renderDexSections(filtered){
       const e = dexData[p.id];
       return e && (e.caughtNormal || e.caughtShiny);
     }).length;
+    const complete = items.length>0 && caughtCount === items.length;
+    const starters = REGION_STARTERS[r.key] || [];
+    const gradient = REGION_GRADIENTS[r.key] || 'linear-gradient(135deg,var(--bg-panel),var(--bg-panel-2))';
     html += `
       <div class="region-section">
-        <button class="region-toggle" onclick="toggleRegion('${r.key}')">
-          <span class="region-chevron">${collapsed ? '▸' : '▾'}</span>
-          <span class="region-title">${r.label}</span>
-          <span class="region-count mono">${caughtCount}/${items.length} caught</span>
+        <button class="region-card" style="background:${gradient};" onclick="toggleRegion('${r.key}')">
+          <div class="region-card-starters">
+            ${starters.map(id=>`<img src="${artUrl(id,false)}" alt="" loading="lazy">`).join('')}
+          </div>
+          <div class="region-card-info">
+            <div class="region-card-name">${r.label}</div>
+            ${complete
+              ? `<div class="region-card-complete"><span class="region-pokeball"></span> Complete!</div>`
+              : `<div class="region-card-fraction mono">${caughtCount} / ${items.length}</div>`}
+          </div>
+          <span class="region-card-chevron">${collapsed ? '▸' : '▾'}</span>
         </button>
         ${collapsed ? '' : renderCardsHtml(items)}
       </div>
