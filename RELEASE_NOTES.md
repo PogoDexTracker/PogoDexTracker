@@ -1,5 +1,10 @@
 # PogoDex Tracker — Release Notes
 
+## v1.6.2 Beta
+
+**Fixed: Raid Card was too wide**
+- The card reused the Trade Card's 900px width, which made sense there since it shows a whole grid of Pokémon, but the Raid Card only ever shows one, leaving a lot of empty space on either side. Narrowed to 460px with proportionally smaller title text.
+
 ## v1.6.1 Beta
 
 **Fixed: Raid Card search only accepting one letter at a time**
