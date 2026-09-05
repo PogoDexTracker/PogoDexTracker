@@ -1,5 +1,15 @@
 # PogoDex Tracker — Release Notes
 
+## v1.8.3 Beta
+
+**Reworked: Trade Builder "Wanted" panel — same browsing pattern as Offering, no more search**
+- Replaces the search box and type-ahead results entirely with the same region-card component used for Offering, sized down to fit the half-width column.
+- Browses the full National Dex (since you can want anything, not just what you own), grouped by region, same starter art and gradient theme as everywhere else.
+- Tapping a Pokémon adds it straight to your Wanted list; tapping it again removes it, no separate remove step needed for the initial pick.
+- The Wanted list below the browser (with the per-item shiny checkbox and remove button) is unchanged, still where you fine-tune shiny status for each wanted Pokémon before generating a card.
+
+Both sides of the Trade Builder now work the same way: browse a region grid, tap to toggle, generate the card.
+
 ## v1.8.2 Beta
 
 **Removed: Inventory tab**

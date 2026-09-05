@@ -186,6 +186,17 @@
   .region-pokeball::before{content:"";position:absolute;top:5px;left:0;right:0;height:2px;background:#222;}
   .region-pokeball::after{content:"";position:absolute;top:4px;left:4px;width:4px;height:4px;background:#fff;border:1.5px solid #222;border-radius:50%;}
   .region-card-chevron{position:relative;z-index:1;color:rgba(255,255,255,0.8);font-size:14px;flex-shrink:0;}
+
+  .region-card.compact{padding:12px 14px;}
+  .region-card.compact .region-card-starters img{width:38px;height:38px;margin-left:-10px;}
+  .region-card.compact .region-card-name{font-size:15px;}
+  .wanted-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;padding-top:10px;}
+  .dex-card.compact{padding:6px;cursor:pointer;}
+  .dex-card.compact img{width:44px;height:44px;}
+  .dex-card.compact .dex-name{font-size:11px;}
+  .dex-card.compact .dex-num{font-size:9px;}
+  .dex-card.compact.picked{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset;}
+  .picked-badge{font-size:9px;color:var(--good);margin-top:2px;font-weight:700;}
   .region-toggle{
     width:100%;
     display:flex;
@@ -501,7 +512,6 @@ const REGION_GRADIENTS = {
 let bootError = null;
 let tradeWanted = [];
 let tradeCardSnapshot = [];
-let tradeSearch = '';
 let tradeCardHtml = '';
 let trainerCode = '';
 
@@ -1628,24 +1638,14 @@ async function exportInventoryToSheets(){
 }
 
 function renderTrade(el){
-  const results = tradeSearch ? speciesList.filter(p=>{
-    const q = tradeSearch.toLowerCase();
-    return p.name.includes(q) || String(p.id)===q;
-  }).slice(0,20) : [];
-
   el.innerHTML = `
     <div class="panel">
       <div class="trade-cols">
         <div>
           <h3 class="display" style="margin-top:0;">Wanted</h3>
-          <input type="text" id="tradeSearchInput" placeholder="Search Pokémon to add..." value="${tradeSearch}">
-          <div class="search-results" id="tradeSearchResults">${results.map(p=>`
-            <div class="sr-item" onclick="addWanted(${p.id})">
-              <img src="${artUrl(p.id,false)}">
-              <span style="text-transform:capitalize;font-size:13px;">${p.name}</span>
-            </div>
-          `).join('')}</div>
-          <div class="trade-list">${tradeWanted.map((w,i)=>`
+          <div class="bezel-sub" style="margin-bottom:0;">Tap any Pokémon to add or remove it from your wanted list.</div>
+          <div id="wantedBrowserWrap" style="max-height:280px;overflow-y:auto;margin-top:10px;"></div>
+          <div class="trade-list" style="margin-top:14px;">${tradeWanted.map((w,i)=>`
             <div class="trade-item">
               <img src="${artUrl(w.id, w.shiny)}" onerror="this.src='${artUrl(w.id,false)}'">
               <span>${w.name}</span>
@@ -1664,6 +1664,7 @@ function renderTrade(el){
       <div id="tradeCardWrap"></div>
     </div>
   `;
+  renderWantedBrowser();
   renderOfferingPanel();
   // Form sprites/labels only load once a species' variations have been
   // viewed on the Pokédex tab. Fill in anything missing so caught forms
@@ -1672,10 +1673,6 @@ function renderTrade(el){
   ensureFormsLoadedForInventory().then(()=>{
     if(currentTab === 'trade') renderOfferingPanel();
   });
-  document.getElementById('tradeSearchInput').oninput = (ev)=>{
-    tradeSearch = ev.target.value;
-    updateTradeSearchResults();
-  };
 
   if(tradeCardHtml){
     document.getElementById('tradeCardWrap').innerHTML = tradeCardHtml + `
@@ -1798,29 +1795,79 @@ function renderOfferingPanel(){
   wrap.innerHTML = html || '<div class="empty-note">No caught Pokémon in any region yet.</div>';
 }
 
-function updateTradeSearchResults(){
-  const resultsEl = document.getElementById('tradeSearchResults');
-  if(!resultsEl) return;
-  const results = tradeSearch ? speciesList.filter(p=>{
-    const q = tradeSearch.toLowerCase();
-    return p.name.includes(q) || String(p.id)===q;
-  }).slice(0,20) : [];
-  resultsEl.innerHTML = results.map(p=>`
-    <div class="sr-item" onclick="addWanted(${p.id})">
-      <img src="${artUrl(p.id,false)}">
-      <span style="text-transform:capitalize;font-size:13px;">${p.name}</span>
-    </div>
-  `).join('');
+let wantedCollapsedRegions = {};
+function isWantedRegionCollapsed(key){
+  return wantedCollapsedRegions[key] !== false;
+}
+function toggleWantedRegion(key){
+  wantedCollapsedRegions[key] = !isWantedRegionCollapsed(key);
+  renderWantedBrowser();
 }
 
-function addWanted(id){
-  const species = speciesList.find(p=>p.id===id);
-  if(!species) return;
-  if(tradeWanted.find(w=>w.id===id)) return;
-  tradeWanted.push({id, name:species.name, shiny:false});
-  tradeSearch = '';
+function isWanted(id){
+  return tradeWanted.some(w=>w.id===id);
+}
+
+// Tapping a card here toggles it in/out of the Wanted list directly —
+// same click-to-select pattern as the Offering panel, just browsing the
+// full National Dex instead of only what's caught, since you can want
+// anything. Reuses the same region-card component in a compact size to
+// fit the half-width column.
+function toggleWantedPick(id){
+  const idx = tradeWanted.findIndex(w=>w.id===id);
+  if(idx>=0){
+    tradeWanted.splice(idx,1);
+  } else {
+    const species = speciesList.find(p=>p.id===id);
+    if(!species) return;
+    tradeWanted.push({id, name:species.name, shiny:false});
+  }
   renderTabContent();
 }
+
+function renderWantedPickCardHtml(p){
+  const picked = isWanted(p.id);
+  return `
+    <div class="dex-card compact ${picked?'picked':''}" onclick="toggleWantedPick(${p.id})">
+      <div class="dex-card-body">
+        <img src="${artUrl(p.id,false)}" loading="lazy" alt="${p.name}">
+        <div class="dex-num mono">#${String(p.id).padStart(4,'0')}</div>
+        <div class="dex-name">${p.name}</div>
+      </div>
+      ${picked ? '<div class="picked-badge">✓ Wanted</div>' : ''}
+    </div>
+  `;
+}
+
+function renderWantedBrowser(){
+  const wrap = document.getElementById('wantedBrowserWrap');
+  if(!wrap) return;
+  let html = '';
+  REGIONS.forEach(r=>{
+    const items = speciesList.filter(p=>p.id>=r.min && p.id<=r.max);
+    if(!items.length) return;
+    const collapsed = isWantedRegionCollapsed(r.key);
+    const gradient = REGION_GRADIENTS[r.key] || 'linear-gradient(135deg,var(--bg-panel),var(--bg-panel-2))';
+    const starters = REGION_STARTERS[r.key] || [];
+    html += `
+      <div class="region-section">
+        <button class="region-card compact" style="background:${gradient};" onclick="toggleWantedRegion('${r.key}')">
+          <div class="region-card-starters">
+            ${starters.map(id=>`<img src="${artUrl(id,false)}" alt="" loading="lazy">`).join('')}
+          </div>
+          <div class="region-card-info">
+            <div class="region-card-name">${r.label}</div>
+            <div class="region-card-fraction mono">${items.length} species</div>
+          </div>
+          <span class="region-card-chevron">${collapsed ? '▸' : '▾'}</span>
+        </button>
+        ${collapsed ? '' : `<div class="wanted-cards-grid">${items.map(renderWantedPickCardHtml).join('')}</div>`}
+      </div>
+    `;
+  });
+  wrap.innerHTML = html;
+}
+
 function removeWanted(i){ tradeWanted.splice(i,1); renderTabContent(); }
 function toggleWantedShiny(i){ tradeWanted[i].shiny = !tradeWanted[i].shiny; renderTabContent(); }
 
