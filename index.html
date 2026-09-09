@@ -262,6 +262,31 @@
   .slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.15s;}
   input:checked + .slider{background:var(--accent);}
   input:checked + .slider::before{transform:translateX(20px);}
+
+  #tourLayer{position:fixed;inset:0;z-index:200;display:none;pointer-events:none;}
+  #tourLayer.show{display:block;}
+  .tour-spot{
+    position:fixed;
+    border-radius:16px;
+    box-shadow:0 0 0 9999px rgba(5,10,25,0.82);
+    border:2px solid var(--gold);
+    pointer-events:none;
+  }
+  .tour-tip{
+    position:fixed;
+    width:300px;
+    max-width:calc(100vw - 28px);
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px;
+    pointer-events:auto;
+    box-shadow:0 8px 30px rgba(0,0,0,0.5);
+  }
+  .tour-tip-count{font-size:11px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+  .tour-tip-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;}
+  .tour-tip-text{font-size:13px;color:var(--text-dim);line-height:1.5;margin-bottom:14px;}
+  .tour-tip-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;}
   .qty-input{width:70px;text-align:center;}
   .qty-input-mini{width:44px;text-align:center;padding:4px;font-size:12px;}
   .view-variations-btn{
@@ -464,6 +489,7 @@
 <div class="overlay" id="overlay">
   <div class="modal" id="modalBody"></div>
 </div>
+<div id="tourLayer"></div>
 
 <script>
 /* ====== CONFIG — replace with your own Google Cloud OAuth Client ID ====== */
@@ -522,6 +548,7 @@ const REGION_GRADIENTS = {
 };
 
 let bootError = null;
+let onboardingComplete = false;
 let tradeWanted = [];
 let tradeCardSnapshot = [];
 let tradeCardHtml = '';
@@ -669,6 +696,11 @@ async function loadDexData(){
       const json = await res.json();
       dexData = json.dexData || {};
       trainerCode = (json.profile && json.profile.trainerCode) || '';
+      onboardingComplete = (json.profile && json.profile.onboardingComplete) || false;
+      // Grandfather in anyone who already has collection data — the tour
+      // is for first-time users, not a surprise popup for people who've
+      // been using the app since before this feature existed.
+      if(!onboardingComplete && Object.keys(dexData).length > 0) onboardingComplete = true;
     } else {
       dexData = {};
     }
@@ -702,7 +734,7 @@ function saveDexData(){
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ dexData, profile: { trainerCode } })
+        body: JSON.stringify({ dexData, profile: { trainerCode, onboardingComplete } })
       });
     }catch(e){
       console.error('Drive save failed', e);
@@ -1338,6 +1370,10 @@ function renderProfile(el){
         </div>
         <span class="bezel-sub" style="margin:0;">Shown on your trade card when you generate one.</span>
       </div>
+      <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
+        <button class="primary-btn" style="margin-top:0;" onclick="startTour()">Replay Tour</button>
+        <span class="bezel-sub" style="display:block;margin-top:8px;">Walk through the app's tabs and features again.</span>
+      </div>
     </div>
   `;
   document.getElementById('trainerCodeInput').oninput = (ev)=>{
@@ -1691,7 +1727,7 @@ async function exportInventoryToSheets(){
 function renderTrade(el){
   el.innerHTML = `
     <div class="panel">
-      <button class="primary-btn" style="margin-top:0;margin-bottom:18px;" onclick="generateTradeCard()">Generate Trade Card</button>
+      <button class="primary-btn" id="generateTradeCardBtn" style="margin-top:0;margin-bottom:18px;" onclick="generateTradeCard()">Generate Trade Card</button>
       <div class="trade-cols">
         <div>
           <h3 class="display" style="margin-top:0;">Wanted</h3>
@@ -2028,7 +2064,7 @@ function renderRaids(el){
     <div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
         <h3 class="display" style="margin:0;">Current Raid Bosses</h3>
-        <button class="primary-btn" style="margin-top:0;" onclick="openRaidCardBuilder()">Generate Raid Card</button>
+        <button class="primary-btn" id="generateRaidCardBtn" style="margin-top:0;" onclick="openRaidCardBuilder()">Generate Raid Card</button>
       </div>
       <div class="bezel-sub" style="margin-bottom:14px;">Data via pokemon-go-api, sourced from LeekDuck.com. Refreshes every few hours.</div>
       ${tiersWithBosses.length ? tiersWithBosses.map(t=>`
@@ -2286,6 +2322,7 @@ async function bootApp(){
     await loadDexData();
     render();
     if(!trainerCode) showTrainerCodePrompt();
+    else if(!onboardingComplete) startTour();
   }catch(e){
     bootError = e;
     render();
@@ -2304,7 +2341,7 @@ function showTrainerCodePrompt(){
     <input type="text" id="promptTrainerCodeInput" placeholder="1234 5678 9012" maxlength="14" style="width:100%;text-align:center;font-size:16px;margin-bottom:14px;">
     <div style="display:flex;gap:10px;justify-content:center;">
       <button class="primary-btn" style="margin-top:0;" onclick="saveTrainerCodeFromPrompt()">Save</button>
-      <button class="tab-btn" onclick="closeModal()">Skip for now</button>
+      <button class="tab-btn" onclick="skipTrainerCodePrompt()">Skip for now</button>
     </div>
   `;
   document.getElementById('overlay').classList.add('show');
@@ -2313,12 +2350,158 @@ function showTrainerCodePrompt(){
   };
 }
 
+function skipTrainerCodePrompt(){
+  closeModal();
+  if(!onboardingComplete) startTour();
+}
+
 function saveTrainerCodeFromPrompt(){
   const val = document.getElementById('promptTrainerCodeInput').value.trim();
   trainerCode = val;
   saveDexData();
   closeModal();
   if(currentTab==='profile') renderTabContent();
+  if(!onboardingComplete) startTour();
+}
+
+/* ---------------- FIRST-LOGIN TOUR ---------------- */
+// Spotlight-style walkthrough for brand-new accounts only. Existing users
+// (anyone with collection data already in their file) are grandfathered
+// in as already onboarded during loadDexData(), so this never surprises
+// a returning user — it only runs the first time a genuinely empty
+// account boots, plus on-demand via "Replay Tour" in Profile.
+const TOUR_STEPS = [
+  { type:'intro' },
+  { type:'spotlight', tab:'dex', selector:'.region-card', title:'Track your collection', text:'Tap a region to expand it, then tap the ✓ or the ✨ on any Pokémon to mark it caught or shiny.' },
+  { type:'spotlight', tab:'trade', selector:'#wantedBrowserWrap', title:'What you want', text:'Browse any region here and tap a Pokémon to add it to your wanted list.' },
+  { type:'spotlight', tab:'trade', selector:'#offeringWrap', title:'What you\'re offering', text:'Only Pokémon you\'ve actually caught show up here. Tap ✓ or ✨ to mark something tradeable.' },
+  { type:'spotlight', tab:'trade', selector:'#generateTradeCardBtn', title:'Build the card', text:'Once you\'ve picked what you want and what you\'re offering, generate a card to share.' },
+  { type:'spotlight', tab:'raids', selector:'#generateRaidCardBtn', title:'Raid invites', text:'Click here to create a raid invite you can share — boss, CP range, and your trainer code, all in one image.' },
+  { type:'spotlight', tab:'events', selector:'.event-hero', title:'Stay in the loop', text:'The featured story up top always shows what\'s happening right now in Pokémon GO.' },
+  { type:'spotlight', tab:null, selector:'.discord-btn', title:'Join the community', text:'Hop into the testing Discord to chat, report bugs, and get updates.' },
+  { type:'spotlight', tab:null, selector:'.profile-chip', title:'Your profile', text:'Set your trainer code and manage your account here anytime.' },
+  { type:'finish' }
+];
+let tourIndex = 0;
+
+function startTour(){
+  tourIndex = 0;
+  showTourStep();
+}
+
+function skipTour(){
+  document.getElementById('tourLayer').classList.remove('show');
+  closeModal();
+  onboardingComplete = true;
+  saveDexData();
+}
+
+function finishTour(){
+  skipTour();
+}
+
+function tourNext(){
+  tourIndex++;
+  showTourStep();
+}
+
+function tourPrev(){
+  tourIndex = Math.max(1, tourIndex-1);
+  showTourStep();
+}
+
+function showTourStep(){
+  if(tourIndex >= TOUR_STEPS.length){ finishTour(); return; }
+  const step = TOUR_STEPS[tourIndex];
+  if(step.type === 'intro'){
+    document.getElementById('tourLayer').classList.remove('show');
+    renderTourIntroModal();
+    return;
+  }
+  if(step.type === 'finish'){
+    document.getElementById('tourLayer').classList.remove('show');
+    renderTourFinishModal();
+    return;
+  }
+  closeModal();
+  if(step.tab && currentTab !== step.tab) switchTab(step.tab);
+  requestAnimationFrame(()=>{
+    const el = document.querySelector(step.selector);
+    if(!el){
+      // Target isn't on screen right now (e.g. no current/upcoming events
+      // to feature) — skip straight to the next step instead of stalling.
+      tourIndex++;
+      showTourStep();
+      return;
+    }
+    renderTourSpotlight(el, step);
+  });
+}
+
+function renderTourIntroModal(){
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <div class="modal-hero">
+      <img src="logo.png" alt="" style="width:64px;height:64px;border-radius:50%;">
+      <div class="modal-name display" style="margin-top:10px;font-size:19px;">Welcome to PogoDex Tracker!</div>
+    </div>
+    <p class="bezel-sub" style="text-align:center;margin:0 0 16px;">Want a quick tour of what you can do here?</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="primary-btn" style="margin-top:0;" onclick="tourNext()">Start Tour</button>
+      <button class="tab-btn" onclick="skipTour()">Skip</button>
+    </div>
+  `;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function renderTourFinishModal(){
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <div class="modal-hero">
+      <img src="logo.png" alt="" style="width:64px;height:64px;border-radius:50%;">
+      <div class="modal-name display" style="margin-top:10px;font-size:19px;">You're all set!</div>
+    </div>
+    <p class="bezel-sub" style="text-align:center;margin:0 0 16px;">Catch, trade, and raid away. You can replay this tour anytime from your Profile.</p>
+    <div style="display:flex;justify-content:center;">
+      <button class="primary-btn" style="margin-top:0;" onclick="finishTour()">Let's go</button>
+    </div>
+  `;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function renderTourSpotlight(el, step){
+  const layer = document.getElementById('tourLayer');
+  const rect = el.getBoundingClientRect();
+  const pad = 8;
+  const spotTop = rect.top - pad;
+  const spotLeft = rect.left - pad;
+  const spotW = rect.width + pad*2;
+  const spotH = rect.height + pad*2;
+
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const tipBelow = spaceBelow > 170;
+  const tipLeft = Math.max(14, Math.min(rect.left, window.innerWidth - 314));
+
+  const totalSpotlights = TOUR_STEPS.filter(s=>s.type==='spotlight').length;
+  const spotlightNum = TOUR_STEPS.slice(0, tourIndex+1).filter(s=>s.type==='spotlight').length;
+  const isLast = spotlightNum === totalSpotlights;
+
+  layer.innerHTML = `
+    <div class="tour-spot" style="top:${spotTop}px;left:${spotLeft}px;width:${spotW}px;height:${spotH}px;"></div>
+    <div class="tour-tip" style="${tipBelow ? `top:${rect.bottom + 14}px;` : `bottom:${window.innerHeight - rect.top + 14}px;`}left:${tipLeft}px;">
+      <div class="tour-tip-count">${spotlightNum} / ${totalSpotlights}</div>
+      <div class="tour-tip-title">${step.title}</div>
+      <div class="tour-tip-text">${step.text}</div>
+      <div class="tour-tip-actions">
+        <button class="tab-btn" onclick="skipTour()">Skip</button>
+        <div style="display:flex;gap:8px;">
+          ${tourIndex > 1 ? '<button class="tab-btn" onclick="tourPrev()">Back</button>' : ''}
+          <button class="primary-btn" style="margin-top:0;" onclick="tourNext()">${isLast ? 'Finish' : 'Next'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  layer.classList.add('show');
 }
 
 window.onload = initAuth;

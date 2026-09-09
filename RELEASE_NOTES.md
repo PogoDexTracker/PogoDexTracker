@@ -1,5 +1,14 @@
 # PogoDex Tracker — Release Notes
 
+## v1.10.0 Beta
+
+**New: First-login spotlight tour**
+- Brand-new accounts get a guided walkthrough after their first sign-in: a welcome modal, then a spotlight that dims the screen and highlights one real element at a time while switching tabs automatically — the Pokédex region cards, the Trade Builder's Wanted and Offering panels and its Generate button, the Raids tab's "Generate Raid Card" button, the Events hero card, the header Discord button, and the profile chip.
+- Runs once automatically for new accounts, chained after the existing trainer-code prompt (code first, then the tour).
+- Existing accounts are grandfathered in automatically — anyone who already has collection data in their file is treated as already onboarded and will never see this pop up unprompted. It's a first-run feature, not a surprise interruption for returning users.
+- A "Replay Tour" button was added to the Profile tab for anyone who wants to see it again or skipped it originally.
+- Gracefully skips any step whose target isn't currently on screen (for example, the Events hero step if there's nothing current or upcoming to feature) instead of getting stuck.
+
 ## v1.9.2 Beta
 
 **New: Terms of Service page**
