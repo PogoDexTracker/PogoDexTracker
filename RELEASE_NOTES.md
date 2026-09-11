@@ -1,5 +1,15 @@
 # PogoDex Tracker — Release Notes
 
+## v1.10.1 Beta
+
+**New: Official Pokémon GO news on the Events tab**
+- Adds a new "Official News" section pulling directly from Niantic's own RSS feed (`pokemongo.com/feed`), alongside the existing ScrapedDuck/LeekDuck event data.
+- The official feed only ever provides a title, link, and date — no article body — so only those three fields are ever rendered, same non-reproduction rule as everywhere else in the app.
+- Tries a direct browser fetch of the RSS feed first; if that's blocked (RSS feeds aren't always built for cross-origin browser access), falls back automatically to a free RSS-to-JSON proxy built for this exact use case.
+- Kept as its own list below the featured hero rather than hero-eligible, since these headline-only items don't have the image or rich data the hero card is built around.
+- Same hourly caching and non-fatal failure pattern as the rest of the Events tab, a failed fetch only shows a retry note in that one section.
+- Privacy Policy updated to list this new data source.
+
 ## v1.10.0 Beta
 
 **New: First-login spotlight tour**

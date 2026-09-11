@@ -476,6 +476,12 @@
   .event-hero-eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);font-weight:700;}
   .event-hero-name{font-size:26px;font-weight:900;color:var(--text);margin-top:4px;letter-spacing:.2px;}
 
+  .official-news-card{display:block;background:var(--bg-deep);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--text);margin-bottom:8px;transition:.15s;}
+  .official-news-card:hover{border-color:var(--accent);}
+  .official-news-badge{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--gold);font-weight:700;margin-bottom:4px;background:rgba(255,206,69,0.1);padding:2px 8px;border-radius:999px;}
+  .official-news-title{font-size:14px;font-weight:700;}
+  .official-news-date{font-size:11px;color:var(--text-dim);margin-top:4px;}
+
   .event-detail-section{margin-top:14px;}
   .event-detail-label{font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
   .event-chip-row{display:flex;flex-wrap:wrap;gap:8px;}
@@ -933,6 +939,88 @@ async function loadEventsData(){
   }
 }
 
+/* ---------------- OFFICIAL NEWS — pokemongo.com/feed ----------------
+   Niantic's own RSS feed. It only ever carries title/link/pubDate, no
+   article body, so there's nothing to accidentally over-reproduce —
+   we only ever render those three fields, never anything else even if
+   a proxy response happened to include more.
+   RSS feeds are usually built for server-side readers, not browser
+   fetches, so a direct client-side request may get blocked by CORS.
+   We try direct first, and fall back to a free RSS-to-JSON proxy
+   (built for exactly this) only if that fails. */
+const OFFICIAL_NEWS_RSS = 'https://pokemongo.com/feed';
+const OFFICIAL_NEWS_PROXY = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(OFFICIAL_NEWS_RSS);
+const OFFICIAL_NEWS_CACHE_KEY = 'pogodex-official-news-cache-v1';
+const OFFICIAL_NEWS_CACHE_MAX_AGE = 60 * 60 * 1000; // refresh every hour, same as ScrapedDuck
+let officialNewsData = [];
+let officialNewsLoaded = false;
+let officialNewsError = false;
+
+function parseOfficialNewsXml(xmlText){
+  try{
+    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+    if(doc.querySelector('parsererror')) return [];
+    return Array.from(doc.querySelectorAll('item')).map(it=>({
+      title: (it.querySelector('title') && it.querySelector('title').textContent) || '',
+      link: (it.querySelector('link') && it.querySelector('link').textContent) || '',
+      pubDate: (it.querySelector('pubDate') && it.querySelector('pubDate').textContent) || ''
+    }));
+  }catch(e){
+    return [];
+  }
+}
+
+async function loadOfficialNewsData(){
+  try{
+    const cached = localStorage.getItem(OFFICIAL_NEWS_CACHE_KEY);
+    if(cached){
+      const parsed = JSON.parse(cached);
+      if(Date.now() - parsed.ts < OFFICIAL_NEWS_CACHE_MAX_AGE){
+        officialNewsData = parsed.data || [];
+        officialNewsLoaded = true;
+        return;
+      }
+    }
+  }catch(e){}
+  try{
+    const res = await fetch(OFFICIAL_NEWS_RSS);
+    if(!res.ok) throw new Error('direct RSS fetch failed');
+    const text = await res.text();
+    const items = parseOfficialNewsXml(text);
+    if(!items.length) throw new Error('direct RSS parse returned nothing');
+    officialNewsData = items;
+    officialNewsLoaded = true;
+    officialNewsError = false;
+    try{ localStorage.setItem(OFFICIAL_NEWS_CACHE_KEY, JSON.stringify({ts:Date.now(), data:officialNewsData})); }catch(e){}
+    return;
+  }catch(e){
+    // Likely CORS — fall back to the proxy below.
+  }
+  try{
+    const res = await fetch(OFFICIAL_NEWS_PROXY);
+    if(!res.ok) throw new Error('proxy fetch failed');
+    const json = await res.json();
+    const items = (json.items || []).map(it=>({
+      title: it.title || '',
+      link: it.link || '',
+      pubDate: it.pubDate || ''
+    }));
+    officialNewsData = items;
+    officialNewsLoaded = true;
+    officialNewsError = false;
+    try{ localStorage.setItem(OFFICIAL_NEWS_CACHE_KEY, JSON.stringify({ts:Date.now(), data:officialNewsData})); }catch(e){}
+  }catch(e){
+    console.error('Official news load failed (direct and proxy) — continuing without it', e);
+    officialNewsError = true;
+  }
+}
+
+async function retryOfficialNews(){
+  officialNewsError = false;
+  await loadOfficialNewsData();
+  if(currentTab === 'events') renderTabContent();
+}
+
 async function retryEvents(){
   eventsError = false;
   await loadEventsData();
@@ -1110,6 +1198,18 @@ function renderEventHeroHtml(hero, isHeroCurrent){
   `;
 }
 
+function renderOfficialNewsCardHtml(item){
+  const d = new Date(item.pubDate);
+  const dateLabel = isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+  return `
+    <a class="official-news-card" href="${item.link || '#'}" target="_blank" rel="noopener">
+      <div class="official-news-badge">Official</div>
+      <div class="official-news-title">${item.title}</div>
+      ${dateLabel ? `<div class="official-news-date mono">${dateLabel}</div>` : ''}
+    </a>
+  `;
+}
+
 function renderEvents(el){
   if(eventsError){
     el.innerHTML = `<div class="panel"><div class="banner">Could not load events. Check your connection.<button class="retry-btn" onclick="retryEvents()">Retry</button></div></div>`;
@@ -1123,12 +1223,15 @@ function renderEvents(el){
 
   el.innerHTML = `
     <div class="panel">
-      <div class="bezel-sub" style="margin-bottom:14px;">Event data via ScrapedDuck, sourced from LeekDuck.com.</div>
+      <div class="bezel-sub" style="margin-bottom:14px;">Event data via ScrapedDuck, sourced from LeekDuck.com. Official news via pokemongo.com.</div>
       ${hero ? renderEventHeroHtml(hero, isHeroCurrent) : ''}
       <h3 class="display" style="margin-top:0;">Current Events</h3>
       ${restCurrent.length ? `<div class="event-list">${restCurrent.map(renderEventCardHtml).join('')}</div>` : `<div class="empty-note">${isHeroCurrent ? 'Nothing else running right now.' : 'No events currently running.'}</div>`}
       <h3 class="display" style="margin:22px 0 4px;">Upcoming Events</h3>
       ${restUpcoming.length ? `<div class="event-list">${restUpcoming.slice(0,30).map(renderEventCardHtml).join('')}</div>` : '<div class="empty-note">No upcoming events listed yet.</div>'}
+      <h3 class="display" style="margin:22px 0 4px;">Official News</h3>
+      ${officialNewsError ? `<div class="banner">Could not load official news.<button class="retry-btn" onclick="retryOfficialNews()">Retry</button></div>`
+        : (officialNewsData.length ? `<div class="event-list">${officialNewsData.slice(0,20).map(renderOfficialNewsCardHtml).join('')}</div>` : '<div class="empty-note">No official news available right now.</div>')}
     </div>
   `;
 }
@@ -2318,7 +2421,7 @@ async function bootApp(){
   document.getElementById('app').innerHTML = '<div class="panel" style="text-align:center;padding:60px;"><div class="spinner"></div><div class="bezel-sub">Loading your Pokédex...</div></div>';
   bootError = null;
   try{
-    await Promise.all([loadSpeciesList(), loadPoGoApiData(), loadRaidBossData(), loadEventsData()]);
+    await Promise.all([loadSpeciesList(), loadPoGoApiData(), loadRaidBossData(), loadEventsData(), loadOfficialNewsData()]);
     await loadDexData();
     render();
     if(!trainerCode) showTrainerCodePrompt();
