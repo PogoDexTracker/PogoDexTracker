@@ -1,5 +1,11 @@
 # PogoDex Tracker — Release Notes
 
+## v1.10.2 Beta
+
+**Changed: Events tab news section is now two columns**
+- Current/Upcoming Events (left) and Official News (right) now sit side by side below the hero card, reusing the same two-column layout and divider already built for the Trade Builder. Official News no longer sits buried at the bottom of a long single-column page, it's visible right away in its own column.
+- On narrow/mobile widths, the columns stack the same way the Trade Builder's do, Current/Upcoming first, Official News below.
+
 ## v1.10.1 Beta
 
 **New: Official Pokémon GO news on the Events tab**

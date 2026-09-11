@@ -1225,13 +1225,19 @@ function renderEvents(el){
     <div class="panel">
       <div class="bezel-sub" style="margin-bottom:14px;">Event data via ScrapedDuck, sourced from LeekDuck.com. Official news via pokemongo.com.</div>
       ${hero ? renderEventHeroHtml(hero, isHeroCurrent) : ''}
-      <h3 class="display" style="margin-top:0;">Current Events</h3>
-      ${restCurrent.length ? `<div class="event-list">${restCurrent.map(renderEventCardHtml).join('')}</div>` : `<div class="empty-note">${isHeroCurrent ? 'Nothing else running right now.' : 'No events currently running.'}</div>`}
-      <h3 class="display" style="margin:22px 0 4px;">Upcoming Events</h3>
-      ${restUpcoming.length ? `<div class="event-list">${restUpcoming.slice(0,30).map(renderEventCardHtml).join('')}</div>` : '<div class="empty-note">No upcoming events listed yet.</div>'}
-      <h3 class="display" style="margin:22px 0 4px;">Official News</h3>
-      ${officialNewsError ? `<div class="banner">Could not load official news.<button class="retry-btn" onclick="retryOfficialNews()">Retry</button></div>`
-        : (officialNewsData.length ? `<div class="event-list">${officialNewsData.slice(0,20).map(renderOfficialNewsCardHtml).join('')}</div>` : '<div class="empty-note">No official news available right now.</div>')}
+      <div class="trade-cols">
+        <div>
+          <h3 class="display" style="margin-top:0;">Current Events</h3>
+          ${restCurrent.length ? `<div class="event-list">${restCurrent.map(renderEventCardHtml).join('')}</div>` : `<div class="empty-note">${isHeroCurrent ? 'Nothing else running right now.' : 'No events currently running.'}</div>`}
+          <h3 class="display" style="margin:22px 0 4px;">Upcoming Events</h3>
+          ${restUpcoming.length ? `<div class="event-list">${restUpcoming.slice(0,30).map(renderEventCardHtml).join('')}</div>` : '<div class="empty-note">No upcoming events listed yet.</div>'}
+        </div>
+        <div>
+          <h3 class="display" style="margin-top:0;">Official News</h3>
+          ${officialNewsError ? `<div class="banner">Could not load official news.<button class="retry-btn" onclick="retryOfficialNews()">Retry</button></div>`
+            : (officialNewsData.length ? `<div class="event-list">${officialNewsData.slice(0,20).map(renderOfficialNewsCardHtml).join('')}</div>` : '<div class="empty-note">No official news available right now.</div>')}
+        </div>
+      </div>
     </div>
   `;
 }
