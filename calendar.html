@@ -50,11 +50,12 @@
     background:var(--bg-deep);
     border:1px solid var(--line);
     border-radius:10px;
-    min-height:86px;
+    height:78px;
     padding:6px;
     display:flex;
     flex-direction:column;
     gap:3px;
+    overflow:hidden;
   }
   .cal-day.other-month{opacity:0.35;}
   .cal-day.today{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;}
@@ -74,6 +75,21 @@
   }
   .cal-more{font-size:10px;color:var(--text-dim);padding:1px 5px;cursor:pointer;}
   .cal-legend{margin-top:14px;font-size:12px;color:var(--text-dim);}
+
+  .cal-month-strip{margin-bottom:16px;}
+  .cal-month-strip-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);font-weight:700;margin-bottom:8px;}
+  .cal-month-strip-items{display:flex;flex-wrap:wrap;gap:8px;}
+  .cal-strip-chip{
+    background:var(--bg-deep);
+    border:1px solid var(--line);
+    border-left:4px solid var(--accent);
+    border-radius:8px;
+    padding:7px 12px;
+    cursor:pointer;
+    max-width:260px;
+  }
+  .cal-strip-chip-name{display:block;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cal-strip-chip-dates{display:block;font-size:10px;color:var(--text-dim);margin-top:2px;}
   .cal-popover{
     position:fixed;
     z-index:50;
@@ -113,6 +129,7 @@
         <button class="cal-btn" onclick="calNextMonth()">Next ›</button>
       </div>
     </div>
+    <div id="calMonthStrip"></div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-legend">Events shown are sourced from ScrapedDuck (LeekDuck.com). Tap any event to see its dates and open the full write-up.</div>
   </div>
@@ -151,14 +168,43 @@ async function loadEventsData(){
   }
 }
 
-// Consistent color per category without needing to enumerate every
-// possible ScrapedDuck heading value — hashes the string to a hue.
+// Consistent color per category — a curated palette for the categories
+// people actually care about, with one neutral fallback for anything
+// uncommon, rather than a hash that gives every category a similar-
+// looking muddy tone with no visual separation.
+const CATEGORY_COLORS = [
+  ['community day', '#8B5CF6'],
+  ['spotlight hour', '#3B82F6'],
+  ['raid hour', '#EF4444'],
+  ['raid day', '#F97316'],
+  ['raid battles', '#F97316'],
+  ['max battle', '#FB923C'],
+  ['research breakthrough', '#10B981'],
+  ['battle league', '#FACC15']
+];
+const CATEGORY_FALLBACK = '#64748B';
 function categoryColor(heading){
-  const str = heading || 'Event';
-  let hash = 0;
-  for(let i=0;i<str.length;i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 65%, 62%)`;
+  const key = (heading || 'event').toLowerCase();
+  for(const [needle, color] of CATEGORY_COLORS){
+    if(key.includes(needle)) return color;
+  }
+  return CATEGORY_FALLBACK;
+}
+
+// Month-long passes, season promos, and League rotations run 20-30+
+// days straight — putting a chip on every single day they touch is
+// what actually caused the wall-of-color clutter. Anything longer than
+// ~10 days is treated as "long-running" and shown once, above the
+// grid, instead of repeated in every day cell it spans.
+const LONG_RUNNING_THRESHOLD_DAYS = 10;
+function durationDays(e){
+  if(!e.start) return 1;
+  const start = new Date(e.start);
+  const end = e.end ? new Date(e.end) : start;
+  return Math.round((end - start) / 86400000) + 1;
+}
+function isLongRunning(e){
+  return durationDays(e) > LONG_RUNNING_THRESHOLD_DAYS;
 }
 
 function sameDay(a,b){
@@ -166,18 +212,49 @@ function sameDay(a,b){
 }
 
 function eventsOnDay(day){
+  const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0,0,0);
+  const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23,59,59);
   return eventsData.filter(e=>{
-    if(!e.start) return false;
+    if(!e.start || isLongRunning(e)) return false;
     const start = new Date(e.start);
     const end = e.end ? new Date(e.end) : start;
-    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0,0,0);
-    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23,59,59);
     return start <= dayEnd && end >= dayStart;
   });
 }
 
+function longRunningThisMonth(){
+  const monthStart = new Date(calViewDate.getFullYear(), calViewDate.getMonth(), 1);
+  const monthEnd = new Date(calViewDate.getFullYear(), calViewDate.getMonth()+1, 0, 23,59,59);
+  return eventsData.filter(e=>{
+    if(!e.start || !isLongRunning(e)) return false;
+    const start = new Date(e.start);
+    const end = e.end ? new Date(e.end) : start;
+    return start <= monthEnd && end >= monthStart;
+  });
+}
+
+function renderMonthStrip(){
+  const strip = document.getElementById('calMonthStrip');
+  const items = longRunningThisMonth();
+  if(!items.length){ strip.innerHTML = ''; return; }
+  strip.innerHTML = `
+    <div class="cal-month-strip">
+      <div class="cal-month-strip-label">Running this month</div>
+      <div class="cal-month-strip-items">
+        ${items.map(e=>`
+          <div class="cal-strip-chip" style="border-left-color:${categoryColor(e.heading||e.eventType)};" onclick="showEventPopover(event,'${e.eventID}')">
+            <span class="cal-strip-chip-name">${(e.name||'').replace(/'/g,"&#39;")}</span>
+            <span class="cal-strip-chip-dates">${e.start?formatDate(new Date(e.start)):''}${e.end?' – '+formatDate(new Date(e.end)):''}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderCalendar(){
   document.getElementById('calMonthLabel').textContent = calViewDate.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+  renderMonthStrip();
 
   const grid = document.getElementById('calGrid');
   const dowNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -194,7 +271,7 @@ function renderCalendar(){
     const inMonth = day.getMonth() === calViewDate.getMonth();
     const isToday = sameDay(day, today);
     const dayEvents = eventsOnDay(day);
-    const shown = dayEvents.slice(0,3);
+    const shown = dayEvents.slice(0,2);
     const extra = dayEvents.length - shown.length;
 
     html += `

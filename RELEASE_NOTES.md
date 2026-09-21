@@ -1,5 +1,14 @@
 # PogoDex Tracker — Release Notes
 
+## v1.11.1 Beta
+
+**Fixed: Calendar was cluttered with month-long items repeated on every day**
+- The real problem wasn't a display bug, it was treating month-long passes and season promos (GO Pass, League rotations, Pokémon Horizons celebration events) the same as single-day events. Those items span 20-30 days, so they were putting a chip on nearly every cell in the grid.
+- Anything spanning more than 10 days now shows once, in a new "Running this month" strip above the grid, instead of repeated in every day it touches.
+- Day cells now only show genuinely short events (Community Day, Raid Hour, Spotlight Hour, Max Battle Day, etc.), capped at 2 visible chips per day with a "+N more" for busier days.
+- Day cells are now a fixed height instead of growing unevenly based on how many long-running items happened to be crammed in.
+- Replaced the hash-based chip color (which gave every category a similar muddy tone) with a curated palette for the common categories, plus one neutral fallback for anything uncommon, so Community Day, Raid Hour, Spotlight Hour, etc. are now visually distinct at a glance.
+
 ## v1.11.0 Beta
 
 **New: Standalone Event Calendar page**
