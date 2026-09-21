@@ -1,5 +1,17 @@
 # PogoDex Tracker — Release Notes
 
+## v1.11.0 Beta
+
+**New: Standalone Event Calendar page**
+- Added `calendar.html`, a month-grid view of ScrapedDuck's event data, same dark theme as the rest of the app, same standalone-page pattern already used for Privacy/Terms.
+- Inspired by vivific's pgocalendar timeline concept, but built entirely from data already in this app's own pipeline. Their repo has no stated license or reuse terms for its own data/code, so nothing from it was used, only the general idea of a visual event calendar.
+- Multi-day events show a colored chip on every day they span; a day with more than 3 events shows a "+N more" that opens a small day-summary popover.
+- Chip colors are generated consistently per category (Community Day, Raid Hour, etc.) without needing to hardcode every possible ScrapedDuck heading value.
+- Today's cell is highlighted; Prev/Next/Today controls navigate months.
+- Clicking an event opens a small popover with its dates and a link to the full LeekDuck write-up, same non-reproduction rule as the rest of the app.
+- "📅 View Calendar" link added to the Events tab, above the Current/Upcoming + Official News section.
+- Official News items are excluded from the calendar grid, they only have a single publish date, not an event date range, so they don't fit the same visual model. They stay in their existing list.
+
 ## v1.10.2 Beta
 
 **Changed: Events tab news section is now two columns**

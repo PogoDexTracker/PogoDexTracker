@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event Calendar — PogoDex Tracker</title>
+<style>
+  :root{
+    --bg-deep:#0A1420;
+    --bg-panel:#0F1E2E;
+    --bg-panel-2:#142A3D;
+    --line:#20394D;
+    --accent:#7C93B0;
+    --gold:#FFCE45;
+    --text:#EAF6F0;
+    --text-dim:#84A2B0;
+    --good:#4ADE80;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #17273a 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #14212e 0%, transparent 55%),
+      var(--bg-deep);
+    color:var(--text);
+    font-family:'Roboto',sans-serif;
+    min-height:100vh;
+  }
+  h1,.display{font-family:'Roboto',sans-serif;font-weight:700;}
+  .wrap{max-width:920px;margin:0 auto;padding:24px 16px 60px;}
+  .back-link{color:var(--accent);text-decoration:none;font-size:14px;}
+  .back-link:hover{color:var(--text);}
+  h1{font-size:24px;margin:14px 0 18px;}
+  .panel{
+    background:linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+  }
+  .cal-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+  .cal-month-label{font-size:19px;font-weight:700;}
+  .cal-nav{display:flex;gap:8px;align-items:center;}
+  .cal-btn{background:var(--bg-deep);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;}
+  .cal-btn:hover{border-color:var(--accent);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal-dow{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);text-align:center;padding-bottom:4px;}
+  .cal-day{
+    background:var(--bg-deep);
+    border:1px solid var(--line);
+    border-radius:10px;
+    min-height:86px;
+    padding:6px;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+  .cal-day.other-month{opacity:0.35;}
+  .cal-day.today{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;}
+  .cal-day-num{font-size:12px;color:var(--text-dim);font-weight:700;}
+  .cal-day.today .cal-day-num{color:var(--gold);}
+  .cal-chip{
+    font-size:10px;
+    line-height:1.3;
+    padding:2px 5px;
+    border-radius:5px;
+    color:#0A1420;
+    font-weight:700;
+    cursor:pointer;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .cal-more{font-size:10px;color:var(--text-dim);padding:1px 5px;cursor:pointer;}
+  .cal-legend{margin-top:14px;font-size:12px;color:var(--text-dim);}
+  .cal-popover{
+    position:fixed;
+    z-index:50;
+    width:280px;
+    max-width:calc(100vw - 28px);
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.5);
+  }
+  .cal-popover-close{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;}
+  .cal-popover-badge{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;padding:2px 8px;border-radius:999px;color:#0A1420;margin-bottom:6px;}
+  .cal-popover-name{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .cal-popover-dates{font-size:12px;color:var(--text-dim);margin-bottom:12px;}
+  .cal-popover-link{display:inline-block;background:var(--accent);color:var(--bg-deep);text-decoration:none;font-weight:700;font-size:13px;padding:8px 14px;border-radius:10px;}
+  .cal-overlay-bg{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,0);}
+  .empty-note{color:var(--text-dim);font-size:13px;text-align:center;padding:20px 0;}
+  .footer-note{margin-top:24px;text-align:center;font-size:11px;line-height:1.6;color:var(--text-dim);opacity:0.75;}
+  @media(max-width:640px){
+    .cal-day{min-height:64px;}
+    .cal-chip{font-size:9px;}
+    .cal-dow{font-size:9px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html">← Back to PogoDex Tracker</a>
+  <h1>Event Calendar</h1>
+  <div class="panel">
+    <div class="cal-header">
+      <div class="cal-month-label" id="calMonthLabel"></div>
+      <div class="cal-nav">
+        <button class="cal-btn" onclick="calPrevMonth()">‹ Prev</button>
+        <button class="cal-btn" onclick="calToday()">Today</button>
+        <button class="cal-btn" onclick="calNextMonth()">Next ›</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-legend">Events shown are sourced from ScrapedDuck (LeekDuck.com). Tap any event to see its dates and open the full write-up.</div>
+  </div>
+  <div class="footer-note">PogoDex Tracker is an unofficial fan project and is not affiliated with Nintendo, Niantic, or The Pokémon Company.</div>
+</div>
+
+<script>
+const EVENTS_API = 'https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.min.json';
+const EVENTS_CACHE_KEY = 'pogodex-events-cache-v1';
+const EVENTS_CACHE_MAX_AGE = 60 * 60 * 1000;
+
+let eventsData = [];
+let calViewDate = new Date();
+calViewDate.setDate(1);
+
+async function loadEventsData(){
+  try{
+    const cached = localStorage.getItem(EVENTS_CACHE_KEY);
+    if(cached){
+      const parsed = JSON.parse(cached);
+      if(Date.now() - parsed.ts < EVENTS_CACHE_MAX_AGE){
+        eventsData = parsed.data || [];
+        return;
+      }
+    }
+  }catch(e){}
+  try{
+    const res = await fetch(EVENTS_API);
+    if(!res.ok) throw new Error('events fetch failed');
+    const json = await res.json();
+    eventsData = Array.isArray(json) ? json : [];
+    try{ localStorage.setItem(EVENTS_CACHE_KEY, JSON.stringify({ts:Date.now(), data:eventsData})); }catch(e){}
+  }catch(e){
+    console.error('Calendar events load failed', e);
+    eventsData = [];
+  }
+}
+
+// Consistent color per category without needing to enumerate every
+// possible ScrapedDuck heading value — hashes the string to a hue.
+function categoryColor(heading){
+  const str = heading || 'Event';
+  let hash = 0;
+  for(let i=0;i<str.length;i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 65%, 62%)`;
+}
+
+function sameDay(a,b){
+  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+}
+
+function eventsOnDay(day){
+  return eventsData.filter(e=>{
+    if(!e.start) return false;
+    const start = new Date(e.start);
+    const end = e.end ? new Date(e.end) : start;
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0,0,0);
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23,59,59);
+    return start <= dayEnd && end >= dayStart;
+  });
+}
+
+function renderCalendar(){
+  document.getElementById('calMonthLabel').textContent = calViewDate.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+
+  const grid = document.getElementById('calGrid');
+  const dowNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html = dowNames.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+
+  const monthStart = new Date(calViewDate.getFullYear(), calViewDate.getMonth(), 1);
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+  const today = new Date();
+
+  for(let i=0;i<42;i++){
+    const day = new Date(gridStart);
+    day.setDate(gridStart.getDate() + i);
+    const inMonth = day.getMonth() === calViewDate.getMonth();
+    const isToday = sameDay(day, today);
+    const dayEvents = eventsOnDay(day);
+    const shown = dayEvents.slice(0,3);
+    const extra = dayEvents.length - shown.length;
+
+    html += `
+      <div class="cal-day ${inMonth?'':'other-month'} ${isToday?'today':''}">
+        <div class="cal-day-num">${day.getDate()}</div>
+        ${shown.map(e=>`<div class="cal-chip" style="background:${categoryColor(e.heading||e.eventType)};" onclick="showEventPopover(event,'${e.eventID}')">${(e.name||'').replace(/'/g,"&#39;")}</div>`).join('')}
+        ${extra > 0 ? `<div class="cal-more" onclick="showDayPopover(event, ${i})">+${extra} more</div>` : ''}
+      </div>
+    `;
+  }
+  grid.innerHTML = html;
+  window._calGridStart = gridStart;
+}
+
+function formatDate(d){
+  return d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+}
+
+function closeCalPopover(){
+  const existing = document.getElementById('calPopover');
+  if(existing) existing.remove();
+  const bg = document.getElementById('calOverlayBg');
+  if(bg) bg.remove();
+}
+
+function positionPopover(el, anchorEvent){
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = anchorEvent.clientX + 12;
+  let top = anchorEvent.clientY + 12;
+  if(left + 280 > vw - 14) left = vw - 294;
+  if(top + 160 > vh - 14) top = vh - 174;
+  el.style.left = Math.max(14,left) + 'px';
+  el.style.top = Math.max(14,top) + 'px';
+}
+
+function showEventPopover(ev, eventID){
+  ev.stopPropagation();
+  closeCalPopover();
+  const e = eventsData.find(x=>x.eventID===eventID);
+  if(!e) return;
+  const start = e.start ? formatDate(new Date(e.start)) : '';
+  const end = e.end ? formatDate(new Date(e.end)) : '';
+  const rangeLabel = start && end ? (start===end ? start : `${start} – ${end}`) : (start || end);
+
+  const bg = document.createElement('div');
+  bg.className = 'cal-overlay-bg';
+  bg.id = 'calOverlayBg';
+  bg.onclick = closeCalPopover;
+  document.body.appendChild(bg);
+
+  const pop = document.createElement('div');
+  pop.className = 'cal-popover';
+  pop.id = 'calPopover';
+  pop.innerHTML = `
+    <button class="cal-popover-close" onclick="closeCalPopover()">✕</button>
+    <div class="cal-popover-badge" style="background:${categoryColor(e.heading||e.eventType)};">${e.heading || e.eventType || 'Event'}</div>
+    <div class="cal-popover-name">${e.name || ''}</div>
+    <div class="cal-popover-dates">${rangeLabel}</div>
+    <a class="cal-popover-link" href="${e.link || '#'}" target="_blank" rel="noopener">Read on LeekDuck.com ↗</a>
+  `;
+  document.body.appendChild(pop);
+  positionPopover(pop, ev);
+}
+
+function showDayPopover(ev, gridIndex){
+  ev.stopPropagation();
+  closeCalPopover();
+  const day = new Date(window._calGridStart);
+  day.setDate(day.getDate() + gridIndex);
+  const dayEvents = eventsOnDay(day);
+
+  const bg = document.createElement('div');
+  bg.className = 'cal-overlay-bg';
+  bg.id = 'calOverlayBg';
+  bg.onclick = closeCalPopover;
+  document.body.appendChild(bg);
+
+  const pop = document.createElement('div');
+  pop.className = 'cal-popover';
+  pop.id = 'calPopover';
+  pop.innerHTML = `
+    <button class="cal-popover-close" onclick="closeCalPopover()">✕</button>
+    <div class="cal-popover-name" style="margin-bottom:10px;">${day.toLocaleDateString(undefined,{month:'long', day:'numeric'})}</div>
+    ${dayEvents.map(e=>`
+      <div style="margin-bottom:8px;cursor:pointer;" onclick="showEventPopover(event,'${e.eventID}')">
+        <span class="cal-popover-badge" style="background:${categoryColor(e.heading||e.eventType)};margin-bottom:2px;">${e.heading || e.eventType || 'Event'}</span>
+        <div style="font-size:13px;font-weight:700;">${e.name || ''}</div>
+      </div>
+    `).join('')}
+  `;
+  document.body.appendChild(pop);
+  positionPopover(pop, ev);
+}
+
+function calPrevMonth(){
+  calViewDate.setMonth(calViewDate.getMonth()-1);
+  closeCalPopover();
+  renderCalendar();
+}
+function calNextMonth(){
+  calViewDate.setMonth(calViewDate.getMonth()+1);
+  closeCalPopover();
+  renderCalendar();
+}
+function calToday(){
+  calViewDate = new Date();
+  calViewDate.setDate(1);
+  closeCalPopover();
+  renderCalendar();
+}
+
+async function bootCalendar(){
+  document.getElementById('calGrid').innerHTML = '<div class="empty-note">Loading events...</div>';
+  await loadEventsData();
+  renderCalendar();
+}
+
+window.onload = bootCalendar;
+</script>
+</body>
+</html>
